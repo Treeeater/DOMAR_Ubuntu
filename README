@@ -1,0 +1,16 @@
+Put DOMAR.rb buildModel.rb specialID.rb checkModel.rb into /usr/lib/cgi-bin/ or whatever your cgi folder is. Make sure your apache support ruby as a cgi module
+Put thirdPartyAudit...rb into greasyspoon's serverscripts and install jruby.
+Put FFReplace....js into /var/www/ or your apache regular root directory.
+
+Directory structure for ~/Desktop/DOMAR
+|
+|-DiffA/domain/url/diffx.txt
+|-DiffR/domain/url/diffx.txt
+|-PolicyA/domain/url/thirdpartydomains.txt
+|-PolicyR/domain/url/thirdpartydomains.txt
+|-records/domain/url/recordx.txt
+|-specialID/domain/url/url.txt
+|-traffic/domain/url/urlx.txt
+|-site_preferences/domains.txt
+|-DOMAR_preference.txt
+
