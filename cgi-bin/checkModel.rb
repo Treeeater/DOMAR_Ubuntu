@@ -165,20 +165,99 @@ def CheckModel(record, policyA, policyR, domain, url, id, relative)
 			}
 			diffAFileHandle.write("------------------------\n")
 		}
+		diffAFileHandle.close()
 	end
 	if ((relative)&&(!diffArrayR.empty?))
 		makeDirectory($DiffRDir+domain+"/"+url+"/")
 		diffRFileHandle = File.open($DiffRDir+domain+"/"+url+"/diff"+id.to_s+".txt","w")
+		pf = File.open($SpecialIdDir+domain+"/"+url+"/patch.txt","a")
+		possiblePatches = Hash.new
+		if (File.exists?($AnchorErrorDir + domain + "/" + url + "/error" + id.to_s + ".txt"))
+			#if previously we have recorded an error in parsing, now we want to try to handle it.
+			efh = File.open($AnchorErrorDir + domain + "/" + url + "/error" + id.to_s + ".txt", "r")
+			while (line = efh.gets)
+				a = line.index(' => ')
+				b = line.index(' ]> ')
+				if ((a!=nil)&&(b!=nil))
+					possiblePatches[line[a+4..b-1]]=line[b+4..line.length]
+				end
+			end
+			efh.close()
+		end
 		diffArrayR.each_key{|tld|
 			diffRFileHandle.write(tld+"\n")
 			diffArrayR[tld].each{|d|
 				diffRFileHandle.write(d+"\n")
+				newAnchor = d.gsub(/^\/\/(.*?)[\/\s]/,'\1')		#\s is a bug, but we just get along with it.
+				if ((d!=newAnchor)&&(possiblePatches.has_key?(newAnchor)))
+					#generate a patch info
+					pf.write(newAnchor + " => " + possiblePatches[newAnchor])
+				end
 			}
 			diffRFileHandle.write("------------------------\n")
 		}
+		diffRFileHandle.close()
+		pf.close()
 	end
 end
 
+def AdaptAnchor(domain, url)
+	adapted = false
+	if (!File.exists?($SpecialIdDir+domain+"/"+url+"/patch.txt")) then return
+	end
+	patchFile = File.read($SpecialIdDir+domain+"/"+url+"/patch.txt")
+	patchlines = Hash.new
+	patchFile.each_line{|l|
+		# l has \n
+		patchlines[l] = (patchlines[l]==nil) ? 1 : patchlines[l]+1
+	}
+	patchlines.each_key{|l|
+		if (patchlines[l]>$PatchThreshold)
+			patchlines.delete(l)
+			l = l.chomp
+			if (l.index("->")==nil) then next end
+			if (l.index("=>")==nil) then next end
+			specialID = l[0..l.index("->")-1]
+			vicinityInfo = l[l.index("=>")+3..l.length]		#no \n in vicinity Info
+			anchorFile = File.read($SpecialIdDir+domain+"/"+url+"/"+url+".txt")
+			currentDomain = ""
+			currentId = ""
+			firstLine = ""
+			secondLine = ""
+			found = false
+			anchorFile.each_line{|al|
+				al = al.chomp
+				if (al[0..7]=="Domain:=") then currentDomain = al[9..al.length] end
+				if (al[0..4]=="Tag:=")
+					currentId = al.gsub(/.*>(\d+)/,'\1')
+					if (currentDomain+currentId==specialID)
+						firstLine = al
+						found = true
+						next
+					end
+				end
+				if ((found)&&(al[0..0]=="&"))
+					secondLine = al
+					break
+				end
+			}
+			
+			anchorFile = anchorFile.sub(firstLine+"\n"+secondLine,firstLine+"\n&"+vicinityInfo)
+			File.open($SpecialIdDir+domain+"/"+url+"/"+url+".txt","w"){|f| f.write(anchorFile)}
+			adapted = true
+		end
+	}
+	if (adapted)
+		#we have changed anchors, we need to remove patch recommendations as well.
+		newPatchContent = ""
+		patchFile.each_line{|l|
+			if (patchlines.has_key?(l))
+				newPatchContent = newPatchContent + l
+			end
+		}
+		File.open($SpecialIdDir+domain+"/"+url+"/patch.txt","w"){|f| f.write(newPatchContent)}
+	end
+end
 =begin
 record = File.read($RecordDir+"nytimescom/httpwwwnytimescom/record6.txt")
 relative = probeXPATH(record)

@@ -18,8 +18,10 @@ $PreferenceList = "#{$HomeFolder}/Desktop/DOMAR/DOMAR_preference.txt"
 $PreferenceListDir = "#{$HomeFolder}/Desktop/DOMAR/site_preferences/"
 $SpecialIdDir = "#{$HomeFolder}/Desktop/DOMAR/specialID/"
 $TrafficDir = "#{$HomeFolder}/Desktop/DOMAR/traffic/"
+$AnchorErrorDir = "#{$HomeFolder}/Desktop/DOMAR/anchorErrors/"
 $ModelThreshold = 10
 $AnchorThreshold = 5
+$PatchThreshold = 5
 
 puts "Content-Type: text/html"
 puts
@@ -122,6 +124,7 @@ else
 	if relative then policyR = ExtractPolicyFromFile($PolicyRDir,recordDomain,recordURL)
 	end
 	CheckModel(recordTrace, policyA, policyR, recordDomain, recordURL, id, relative)
+	AdaptAnchor(recordDomain, recordURL)
 end
 puts "<h1>#{TrafficDir}!</h1>"
 puts "</body>"

@@ -51,6 +51,7 @@ $PreferenceList = "#{$HomeFolder}/Desktop/DOMAR/DOMAR_preference.txt"
 $PreferenceListDir = "#{$HomeFolder}/Desktop/DOMAR/site_preferences/"
 $SpecialIdDir = "#{$HomeFolder}/Desktop/DOMAR/specialID/"
 $TrafficDir = "#{$HomeFolder}/Desktop/DOMAR/traffic/"
+$AnchorErrorDir = "#{$HomeFolder}/Desktop/DOMAR/anchorErrors/"
 $ModelThreshold = 100
 $AnchorThreshold = 50
 
@@ -58,6 +59,26 @@ def getTLD(url)
 	domain = url.gsub(/.*?\/\/(.*?)\/.*/,'\1')
 	tld = domain.gsub(/.*\.(.*\..*)/,'\1')
 	return tld
+end
+
+def makeDirectory(param)
+	#cleans everything in param directory! Use extreme caution!
+	if (!File.directory?(param))
+		#create the dir
+		directoryNames = param.split('/')
+		#currentDir = "/" #(linux)
+		currentDir = "" #(windows)
+		directoriesToCreate = Array.new
+		directoryNames.each{|d|
+			currentDir = currentDir + d + "/"
+			if (!File.directory? currentDir)
+				directoriesToCreate.push(currentDir)
+			end
+		}
+		directoriesToCreate.each{|d|
+			Dir.mkdir(d,0777)
+		}
+	end
 end
 
 def injectFFReplace(response,url,domain)
@@ -164,6 +185,9 @@ def convertResponse(response, textPattern, url, filecnt)
 	error = false
 	errormsg = ""
 	currentDomain = ""
+	sanitizedurl = url.gsub(/[^a-zA-Z0-9]/,"")
+    	sanitizedhost = getTLD(url)
+	sanitizedhost = sanitizedhost.gsub(/[^a-zA-Z0-9]/,"")
 	textPattern.each_line{|l|
 		l = l.chomp
 		if (l[0..8]=="Domain:= ")
@@ -222,27 +246,55 @@ def convertResponse(response, textPattern, url, filecnt)
 	}
 	vicinityList.each_key{|id|
 		if (vicinityList[id].length>1)
-			screwed = true
 			found = 0
+			candidates = Array.new
+			candidatesVicinity = Array.new
 			vicinityList[id].each_index{|i|
 				if (approxmatching(vicinityList[id][i],recordedVicinity[id]))
-					listToAdd[id]=Array.new([listToAdd[id][i]])
-					screwed = false
+					candidates.push(listToAdd[id][i])
+					candidatesVicinity.push(vicinityList[id][i])
+					#listToAdd[id]=Array.new([listToAdd[id][i]])
 					found += 1
 				end
 			}
-			if (screwed == true)
+			if (found == 1)
+				#we have found this is the only one that matches.
+				listToAdd[id]=candidates.clone		#candidates only have one element - the correct one.
+			elsif (found == 0)
+				candidates = listToAdd[id].clone		#temporarily store the previously found elements (all of them are incorrect) in a new array.
+				listToAdd.delete(id)				#remove the original item
+				#add all original items differently.
+				#store vicinity information in a cache folder
+				makeDirectory($AnchorErrorDir+sanitizedhost+"/"+sanitizedurl+"/")
+				fh=File.open($AnchorErrorDir+sanitizedhost+"/"+sanitizedurl+"/error"+filecnt.to_s+".txt","a")
+				candidates.each_index{|c|
+					idpatched = id + "->" + c.to_s
+					listToAdd[idpatched] = Array.new([candidates[c]])
+					fh.write(id + " => " + idpatched + " ]> " + vicinityList[id][c] + "\n" )
+				}
+				fh.close()
 				error = true
-				errormsg += "multiple matches found for: "+ id + ", because no vicinity matches original model.\n"
+				errormsg += "multiple matches found for: "+ id + ", but no vicinity matches original model.\n"
 				p errormsg
-			end
-			if (found > 1)
+			elsif (found > 1)
+				listToAdd.delete(id)				#remove the original item
+				#add all original items differently, FIXME:we should include more vicinity info.
+				#store vicinity information in a cache folder
+				makeDirectory($AnchorErrorDir+sanitizedhost+"/"+sanitizedurl+"/")
+				fh=File.open($AnchorErrorDir+sanitizedhost+"/"+sanitizedurl+"/error"+filecnt.to_s+".txt","a")
+				candidates.each_index{|c|
+					idpatched = id + "->" + c.to_s
+					listToAdd[idpatched] = Array.new([candidates[c]])
+					fh.write(id + " => " + idpatched + " ]> " + candidatesVicinity[c] + "\n" )
+				}
+				fh.close()
 				error = true
 				errormsg += "multiple matches found for: "+ id + ", because more than 1 vicinity matches original model. found a total of "+found.to_s+" matches.\n"
 				p errormsg
 			end
 		end
 	}
+=begin
 	checkDup = Hash.new
 	listToAdd.each_key{|id|
 		#remove duplicates.
@@ -253,8 +305,9 @@ def convertResponse(response, textPattern, url, filecnt)
 			
 		end
 	}
+=end
 	listToAdd.each_key{|id|
-		index = listToAdd[id][0]
+		index = listToAdd[id][0]		#FIXME: this actually can be 0
 		content = " specialId=\"#{id}\""
 		response = response.insert(index, content)
 		listToAdd.each_key{|i|
