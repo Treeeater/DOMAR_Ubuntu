@@ -36,7 +36,7 @@ recordURL=""
 recordDomain = ""
 recordTrace = ""
 
-if (!(cgi.has_key?('url')&&cgi.has_key?('domain')&&cgi.has_key?('trace')))
+if (!(cgi.has_key?('url')&&cgi.has_key?('domain')&&cgi.has_key?('trace')&&cgi.has_key?('id')))
 	puts "</body>"
 	puts "</html>"
 	return
@@ -45,6 +45,7 @@ end
 recordURL = CGI.unescapeHTML(cgi['url'])
 recordDomain = CGI.unescapeHTML(cgi['domain'])
 recordTrace = CGI.unescapeHTML(cgi['trace'])
+recordId = CGI.unescapeHTML(cgi['id'])
 if (!File.directory?($RecordDir+recordDomain))
 	Dir.mkdir($RecordDir+recordDomain, 0777)
 end
@@ -54,21 +55,7 @@ end
 files = Dir.glob($RecordDir+recordDomain+"/"+recordURL+"/*")
 times = Array.new
 lookupTable = Hash.new
-id = nil
-files.each{|file|
-	#FIXME:due to DOMAR.rb execution failure or trace submission failure there could be multiples of _zyc existing.
-	if (file.index('_zyc')!=nil)
-		id = file.gsub(/.*?(\d+)\.txt/,'\1')
-		break
-	end
-}
-if (id==nil)
-	#zyc file isn't here, something's wrong. ignore this record.
-	return
-end
-fileName = $RecordDir+recordDomain+"/"+recordURL+"/record"+id.to_s+".txt"
-toDelete = $RecordDir+recordDomain+"/"+recordURL+"/record_zyc"+id.to_s+".txt"
-File.delete(toDelete)
+fileName = $RecordDir+recordDomain+"/"+recordURL+"/record"+recordId.to_s+".txt"
 fh = File.open(fileName, 'w+')
 fh.write(recordTrace)
 fh.close
@@ -80,9 +67,6 @@ if (!File.exists?($SpecialIdDir+recordDomain+"/"+recordURL+"/"+recordURL+".txt")
 		trafficInputs = Array.new
 		recordInputs = Array.new
 		files.each{|f|
-			if (f.index('zyc')!=nil)
-				next
-			end
 			id = f.gsub(/.*?(\d+)\.txt/,'\1')
 			recordInputs.push(f)
 			trafficInputs.push($TrafficDir+recordDomain+"/"+recordURL+"/"+recordURL+id+".txt")
@@ -111,7 +95,7 @@ if (!File.exists?($SpecialIdDir+recordDomain+"/"+recordURL+"/"+recordURL+".txt")
 else
 #our model is only based on the relative+absolute model, so if there is no anchors learnt, we do not check model.
 	relative = probeXPATH(recordTrace)
-	CheckModel(recordTrace, recordDomain, recordURL, id, relative)
+	CheckModel(recordTrace, recordDomain, recordURL, recordId, relative)
 	AdaptAnchor(recordDomain, recordURL)
 end
 =begin

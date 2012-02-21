@@ -81,7 +81,7 @@ def makeDirectory(param)
 	end
 end
 
-def injectFFReplace(response,url,domain)
+def injectFFReplace(response,url,domain,filecnt)
 =begin
 	if (!File.exists? $PreferenceList)
 		p "no preference file."
@@ -113,11 +113,11 @@ def injectFFReplace(response,url,domain)
 		firstportion = response[0..headpos]
 		lastportion = response[headpos..response.length]
 		middleportion = "<script src='http://chromium.cs.virginia.edu:12348/FFReplace_simpl.js'></script><script>"
-		#middleportion = "#{FFReplace}<script>"
 		while (!trustedDomains.empty?)
 			middleportion = middleportion + "__record().Push(\"" + trustedDomains.pop().to_s + "\");\n"
 		end
-		middleportion = middleportion + "__record().Push(\"chromium.cs.virginia.edu:12348\");</script>"
+		middleportion = middleportion + "__record().Push(\"chromium.cs.virginia.edu:12348\");"
+		middleportion = middleportion + "__record().setId(\"#{filecnt.to_s}\");</script>"
 		total = firstportion+middleportion+lastportion
 	end
 	return total
@@ -163,14 +163,6 @@ def collectTextPattern(url,host)
 	end
 	return nil
 end
-=begin
-def tryToBuildModel(url)
-	if ((!File.exists? "/home/yuchen/traffic/"+url+".txt")||(!File.exists? "/home/yuchen/records/"+url+".txt"))
-		return
-	end
-	extractTextPattern("/home/yuchen/traffic/"+url+".txt", "/home/yuchen/records/"+url+".txt", url)
-end
-=end
 
 def approxmatching(a,b)
 	return (a==b)
@@ -432,12 +424,7 @@ def process(response, url, host)
 		response = convertResponse(response,textPattern,url,filecnt)
 	    end
 	    File.open($TrafficDir+"#{sanitizedhost}/#{sanitizedurl}/#{sanitizedurl}"+filecnt.to_s+".txt", 'w+') {|f| f.write(response) }
-	    toclean = Dir.glob($RecordDir+"#{sanitizedhost}/#{sanitizedurl}/record_zyc*")		#if there is multiple zyc file (meaning trace submission failed, we simply clean those zyc files.
-	    toclean.each{|t|
-		File.delete(t)
-	    }
-	    File.open($RecordDir+"#{sanitizedhost}/#{sanitizedurl}/record_zyc"+filecnt.to_s+".txt", 'w+') {|f| f.write("") }
-	    response = injectFFReplace(response,sanitizedurl,getTLD(url))
+	    response = injectFFReplace(response,sanitizedurl,getTLD(url),filecnt)
     end
     puts "finish parsing "+url
     return response

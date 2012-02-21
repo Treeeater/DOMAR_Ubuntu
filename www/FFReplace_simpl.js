@@ -39,6 +39,7 @@ if (!ffversion||(ffversion<5)) return null;
 //private variable: records all DOM accesses
 var record = new Array(new Array(), new Array(), new Array());
 var trustedDomains = ["0.1"];
+var filecnt = "";
 var DOMRecord = 0;
 var windowRecord = 1;
 var documentRecord = 2;
@@ -1213,7 +1214,7 @@ function writePolicy()
 	}
 	rawstring = rawstring + "\nEnd of document special property access\n";						
 	//AJAX to server
-	var payload = "url="+escape(urlfile)+"&domain="+escape(domain)+"&trace="+escape(rawstring);		
+	var payload = "id="+escape(filecnt)+"&url="+escape(urlfile)+"&domain="+escape(domain)+"&trace="+escape(rawstring);		
 	var http = new XMLHttpRequest();
 	http.open("POST", posturl, false);
 	http.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
@@ -1223,7 +1224,7 @@ function writePolicy()
 window.addEventListener('beforeunload',writePolicy,false);
 //window.setTimeout("_record.writePolicy2();",5000);
 //document.head.removeChild(oldGetTagName.call(document,'script')[0]);			//remove myself
-return (function(){this.getRecord = function(){return record;}; this.writePolicy2 = writePolicy; this.Push = function(a){if (a!="") trustedDomains.push(a)}; this.Get = function() {return trustedDomains}; return this;});
+return (function(){this.getRecord = function(){return record;}; this.writePolicy2 = writePolicy; this.Push = function(a){if (a!="") trustedDomains.push(a)}; this.setId = function(id){if (id!="") filecnt = id;}; this.Get = function() {return trustedDomains}; return this;});
 }
 
 __record = new ___record();
