@@ -25,6 +25,26 @@ def probeXPATH(hostD)
 	return File.read(files[0]).include?("<=:| ")
 end
 
+def makeDirectory(param)
+	#cleans everything in param directory! Use extreme caution!
+	if (!File.directory?(param))
+		#create the dir
+		directoryNames = param.split('/')
+		#currentDir = "/" #(linux)
+		currentDir = "" #(windows)
+		directoriesToCreate = Array.new
+		directoryNames.each{|d|
+			currentDir = currentDir + d + "/"
+			if (!File.directory? currentDir)
+				directoriesToCreate.push(currentDir)
+			end
+		}
+		directoriesToCreate.each{|d|
+			Dir.mkdir(d,0777)
+		}
+	end
+end
+
 def prepareDirectory(param)
 	#cleans everything in param directory! Use extreme caution!
 	if File.directory?(param)
@@ -53,12 +73,16 @@ def prepareDirectory(param)
 	end
 end
 
-def extractRecordsFromTrainingData(url, domain)
+def extractRecordsFromTrainingData(url, domain, trainingDataIndices)
 # This function extracts data from files to an associative array randomly, given the P_inst.
 	accessHashA = Hash.new
 	accessHashR = Hash.new
-	rFolder = $RecordDir + url + "/" + domain + "/"
-	files = Dir.glob(rFolder+"*")
+	#rFolder = $RecordDir + url + "/" + domain + "/"
+	#files = Dir.glob(rFolder+"*")
+	files = Array.new
+	trainingDataIndices.each{|t|
+		files.push($RecordDir + url + "/" + domain + "/record"+t+".txt")
+	}
 	files.each{|fileName|
 		f = File.open(fileName, 'r')
 		while (line = f.gets)
@@ -126,32 +150,53 @@ def extractRecordsFromTrainingData(url, domain)
 	return temp
 end
 
-def exportPolicy(extractedRecords, url, domain)
-	pFolderA = $PolicyADir + url + "/" + domain + "/"
-	pFolderR = $PolicyRDir + url + "/" + domain + "/"
-	prepareDirectory(pFolderA)
-	prepareDirectory(pFolderR)
+def exportPolicy(extractedRecords, url, domain, targetDomain=nil)
+	pFolderA = $PolicyADir + url + "/" + domain + "/policies/"
+	pFolderR = $PolicyRDir + url + "/" + domain + "/policies/"
+	makeDirectory(pFolderA)
+	makeDirectory(pFolderR)
 	accessArrayA = extractedRecords.recordsA
-	accessArrayA.each_key{|tld|
-		f = File.open(pFolderA+tld+".txt","w")
-		accessArrayA[tld].each{|xpath|
-			f.puts(xpath)#+"|:=>"+accessArray[tld][xpath].to_s)
+	if (targetDomain==nil)
+		accessArrayA.each_key{|tld|
+			f = File.open(pFolderA+tld+".txt","w")
+			accessArrayA[tld].each{|xpath|
+				f.puts(xpath)#+"|:=>"+accessArray[tld][xpath].to_s)
+			}
+			f.close()
 		}
-		f.close()
-	}
+	else
+		if (accessArrayA[targetDomain]!=nil)
+			f = File.open(pFolderA+targetDomain+".txt","w")
+			accessArrayA[targetDomain].each{|xpath|
+				f.puts(xpath)#+"|:=>"+accessArray[tld][xpath].to_s)
+			}
+			f.close()
+		end
+	end
+
 	accessArrayR = extractedRecords.recordsR
-	accessArrayR.each_key{|tld|
-		f = File.open(pFolderR+tld+".txt","w")
-		accessArrayR[tld].each{|xpath|
-			f.puts(xpath)#+"|:=>"+accessArray[tld][xpath].to_s)
+	if (targetDomain==nil)
+		accessArrayR.each_key{|tld|
+			f = File.open(pFolderR+tld+".txt","w")
+			accessArrayR[tld].each{|xpath|
+				f.puts(xpath)#+"|:=>"+accessArray[tld][xpath].to_s)
+			}
+			f.close()
 		}
-		f.close()
-	}
+	else
+		if (accessArrayR[targetDomain]!=nil)
+			f = File.open(pFolderR+targetDomain+".txt","w")
+			accessArrayR[targetDomain].each{|xpath|
+				f.puts(xpath)#+"|:=>"+accessArray[tld][xpath].to_s)
+			}
+			f.close()
+		end
+	end
 end
 
-def BuildModel(url, domain)
-	extractedRecords = extractRecordsFromTrainingData(url, domain)
-	exportPolicy(extractedRecords, url, domain)
+def BuildModel(url, domain, targetDomain, trainingDataIndices)
+	extractedRecords = extractRecordsFromTrainingData(url, domain, trainingDataIndices)
+	exportPolicy(extractedRecords, url, domain, targetDomain)
 =begin
 	extractedRecords.recordsA.each_key{|tld|
 		tempModel = buildStrictModel(extractedRecords.recordsA[tld], tld) 	#strictest model is actually just extractedRecord

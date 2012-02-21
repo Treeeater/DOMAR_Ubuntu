@@ -11,24 +11,6 @@ def probeXPATH(record)
 	return (record.index("<=:| ")!=nil)
 end
 
-def ExtractPolicyFromFile(rootDir, domain, url)
-	policy = Hash.new
-	policyFiles = Dir.glob(rootDir+domain+"/"+url+"/*")
-	policyFiles.each{|f|
-		if ((f=='.')||(f=='..')) then next
-		end
-		currentDomain = f.gsub(/.*\/(.+)\.txt$/,'\1')
-		if (!policy.has_key? currentDomain)
-			policy[currentDomain] = Array.new
-		end
-		policyContent = File.read(f)
-		policyContent.each_line {|l|
-			policy[currentDomain].push(l.chomp)
-		}
-	}
-	return policy
-end
-
 def makeDirectory(param)
 	#cleans everything in param directory! Use extreme caution!
 	if (!File.directory?(param))
@@ -49,7 +31,33 @@ def makeDirectory(param)
 	end
 end
 
-def CheckModel(record, policyA, policyR, domain, url, id, relative)
+def ExtractPolicyFromFile(rootDir, domain, url)
+	policy = Hash.new
+	makeDirectory(rootDir+domain+"/"+url+"/policies/")
+	policyFiles = Dir.glob(rootDir+domain+"/"+url+"/policies/*")
+	policyFiles.each{|f|
+		if ((f=='.')||(f=='..')) then next
+		end
+		currentDomain = f.gsub(/.*\/(.+)\.txt$/,'\1')
+		if (!policy.has_key? currentDomain)
+			policy[currentDomain] = Array.new
+		end
+		policyContent = File.read(f)
+		policyContent.each_line {|l|
+			policy[currentDomain].push(l.chomp)
+		}
+	}
+	return policy
+end
+
+def CheckModel(record, domain, url, id, relative)
+	makeDirectory($PolicyRDir+domain+"/"+url)
+	makeDirectory($PolicyADir+domain+"/"+url)
+	policyA = Hash.new
+	policyA = ExtractPolicyFromFile($PolicyADir,domain,url)
+	policyR = Hash.new
+	if relative then policyR = ExtractPolicyFromFile($PolicyRDir,domain,url)
+	end
 	accessHashR = Hash.new
 	diffArrayR = Hash.new
 	accessHashA = Hash.new
@@ -105,6 +113,7 @@ def CheckModel(record, policyA, policyR, domain, url, id, relative)
 		end
 	}
 	#done extracting accessHash from current record
+	recordedTLD = Hash.new
 	accessHashA.each_key{|tld|
 		accessHashA[tld].each{|a|
 			if (!policyA.has_key? tld)
@@ -114,6 +123,24 @@ def CheckModel(record, policyA, policyR, domain, url, id, relative)
 					diffArrayA[tld].push(a)
 				else 
 					diffArrayA[tld].push(a)
+				end
+				#we also want to record this in a model suggestion file
+				if (!recordedTLD.has_key? tld)
+					File.open($PolicyADir+domain+"/"+url+"/LIST_"+tld,'a'){|f| f.write(id+"\n")}
+					recordedTLD[tld]=true
+					#we want to check if we can can build a model for this domain
+					list = File.read($PolicyADir+domain+"/"+url+"/LIST_"+tld)
+					lineNo = 0
+					trainingDataIndices = Array.new
+					list.each_line{|l|
+						trainingDataIndices.push(l.chomp)
+						lineNo+=1
+					}
+					if (lineNo>=$ModelThreshold)
+						#we want to build the model for this domain
+						BuildModel(domain, url, tld, trainingDataIndices)		#build model actually builds two models, one for absolute one for relative
+						#File.delete($PolicyRDir+domain+"/"+url+"/LIST_"+tld)
+					end
 				end
 			else
 				#we have seen scripts from this domain

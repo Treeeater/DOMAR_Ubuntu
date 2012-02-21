@@ -62,6 +62,10 @@ files.each{|file|
 		break
 	end
 }
+if (id==nil)
+	#zyc file isn't here, something's wrong. ignore this record.
+	return
+end
 fileName = $RecordDir+recordDomain+"/"+recordURL+"/record"+id.to_s+".txt"
 toDelete = $RecordDir+recordDomain+"/"+recordURL+"/record_zyc"+id.to_s+".txt"
 File.delete(toDelete)
@@ -104,9 +108,13 @@ if (!File.exists?($SpecialIdDir+recordDomain+"/"+recordURL+"/"+recordURL+".txt")
 			end
 		}
 	end
+else
+#our model is only based on the relative+absolute model, so if there is no anchors learnt, we do not check model.
+	relative = probeXPATH(recordTrace)
+	CheckModel(recordTrace, recordDomain, recordURL, id, relative)
+	AdaptAnchor(recordDomain, recordURL)
 end
-#Check if there is model built, if not, build it.
-
+=begin
 policyFiles = Dir.glob($PolicyRDir+recordDomain+"/"+recordURL+"/*")
 if (policyFiles.empty?)
 	#need to check if we want to build model
@@ -118,14 +126,12 @@ if (policyFiles.empty?)
 	#else we do nothing, wait for more record.
 else
 	#we have the model, check it.
-	relative = probeXPATH(recordTrace)
 	policyA = ExtractPolicyFromFile($PolicyADir,recordDomain,recordURL)
 	policyR = Hash.new
 	if relative then policyR = ExtractPolicyFromFile($PolicyRDir,recordDomain,recordURL)
 	end
-	CheckModel(recordTrace, policyA, policyR, recordDomain, recordURL, id, relative)
-	AdaptAnchor(recordDomain, recordURL)
 end
+=end
 puts "<h1>#{TrafficDir}!</h1>"
 puts "</body>"
 puts "</html>"

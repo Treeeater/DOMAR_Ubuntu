@@ -112,12 +112,12 @@ def injectFFReplace(response,url,domain)
 		headpos = insertIndex+1
 		firstportion = response[0..headpos]
 		lastportion = response[headpos..response.length]
-		middleportion = "<script src='http://127.0.0.1/FFReplace_simpl.js'></script><script>"
+		middleportion = "<script src='http://chromium.cs.virginia.edu:12348/FFReplace_simpl.js'></script><script>"
 		#middleportion = "#{FFReplace}<script>"
 		while (!trustedDomains.empty?)
 			middleportion = middleportion + "__record().Push(\"" + trustedDomains.pop().to_s + "\");\n"
 		end
-		middleportion = middleportion + "__record().Push(\"127.0.0.1\");</script>"
+		middleportion = middleportion + "__record().Push(\"chromium.cs.virginia.edu:12348\");</script>"
 		total = firstportion+middleportion+lastportion
 	end
 	return total
@@ -319,12 +319,14 @@ def convertResponse(response, textPattern, url, filecnt)
 	}
 	#p vicinityList
 	#p recordedVicinity	
+=begin
 	if (error)
 		logfh = File.open("/home/yuchen/errorlog.txt","a")
 		logfh.write("error when converting url: #{url}, id: #{filecnt}.\n")
 		logfh.write(errormsg)
 		logfh.close
 	end
+=end
 	return response
 end
 
@@ -430,6 +432,10 @@ def process(response, url, host)
 		response = convertResponse(response,textPattern,url,filecnt)
 	    end
 	    File.open($TrafficDir+"#{sanitizedhost}/#{sanitizedurl}/#{sanitizedurl}"+filecnt.to_s+".txt", 'w+') {|f| f.write(response) }
+	    toclean = Dir.glob($RecordDir+"#{sanitizedhost}/#{sanitizedurl}/record_zyc*")		#if there is multiple zyc file (meaning trace submission failed, we simply clean those zyc files.
+	    toclean.each{|t|
+		File.delete(t)
+	    }
 	    File.open($RecordDir+"#{sanitizedhost}/#{sanitizedurl}/record_zyc"+filecnt.to_s+".txt", 'w+') {|f| f.write("") }
 	    response = injectFFReplace(response,sanitizedurl,getTLD(url))
     end

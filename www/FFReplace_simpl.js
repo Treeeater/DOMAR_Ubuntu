@@ -1160,7 +1160,7 @@ for (i=0; i<allElementsType.length; i++)
 
 function writePolicy()
 {	
-	var posturl = "http://localhost/cgi-bin/DOMAR.rb";
+	var posturl = "http://chromium.cs.virginia.edu:12348/cgi-bin/DOMAR.rb";
 	if (window.___record==undefined) return;
 	var url = document.URL;
 	var domain = document.domain;
