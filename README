@@ -4,13 +4,13 @@ Put FFReplace....js into /var/www/ or your apache regular root directory.
 
 Directory structure for ~/Desktop/DOMAR
 |
-|-DiffA/domain/url/diffx.txt
-|-DiffR/domain/url/diffx.txt
-|-PolicyA/domain/url/thirdpartydomains.txt
-|-PolicyR/domain/url/thirdpartydomains.txt
-|-records/domain/url/recordx.txt
-|-specialID/domain/url/url.txt
-|-traffic/domain/url/urlx.txt
+|-DiffA[R]/domain/url/diffx.txt		#used to store differentials
+|-PolicyA[R]/domain/url/policies/thirdpartydomains.txt	#used to store policies
+|-PolicyA[R]/domain/url/LIST_thirdpartydomains.txt 	#used to store training ids
+|-records/domain/url/recordx.txt			#used to store records
+|-specialID/domain/url/url.txt				#used to store anchors
+|-traffic/domain/url/urlx.txt				#used to store traffics
+|-anchorErrors/domain/url/errorx.txt			#used to store anchorErrors
 |-site_preferences/domains.txt
 |-DOMAR_preference.txt
 
