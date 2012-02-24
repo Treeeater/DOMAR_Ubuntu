@@ -116,7 +116,7 @@ else
 	end
 end
 =end
-puts "<h1>#{TrafficDir}!</h1>"
+puts "<h1>!</h1>"
 puts "</body>"
 puts "</html>"
 

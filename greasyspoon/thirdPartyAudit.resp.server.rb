@@ -100,7 +100,7 @@ def injectFFReplace(response,url,domain,filecnt)
 			trustedDomains.push(line.chomp)
 		end
 	end
-	p trustedDomains
+	#p trustedDomains
 	lowerResponse = response.downcase
 	insertIndex = lowerResponse.index('<head')
 	if (insertIndex == nil) 
@@ -375,6 +375,8 @@ end
 def process(response, url, host)
     #puts url
     #puts host
+    url = url[0..240]		#file length restriction, 255 is maximum, we want to reserve for id and '.txt.'
+    if (url.index('?')!=nil) then url = url[0..url.index('?')-1] end
     puts "Begin to parse "+url
     sanitizedurl = url.gsub(/[^a-zA-Z0-9]/,"")
     sanitizedhost = getTLD(url)
@@ -412,18 +414,19 @@ def process(response, url, host)
 	    while (File.exists? $TrafficDir+"#{sanitizedhost}/#{sanitizedurl}/#{sanitizedurl}"+filecnt.to_s+".txt")
 	    	filecnt+=1
 	    end
-	    p response[0..10]
+	    #p response[0..10]
 	
 	    textPattern = collectTextPattern(sanitizedurl, sanitizedhost)
 	    if (textPattern==nil)
 		#no policy file yet, we need to train one.
 		response = initialTraining(response)
+	    	File.open($TrafficDir+"#{sanitizedhost}/#{sanitizedurl}/#{sanitizedurl}"+filecnt.to_s+".txt", 'w+') {|f| f.write(response) }
 		#tryToBuildModel(sanitizedurl)
 	    else
 		#found policy file, we can use it directly
 		response = convertResponse(response,textPattern,url,filecnt)
+		File.open($TrafficDir+"#{sanitizedhost}/#{sanitizedurl}/#{sanitizedurl}"+filecnt.to_s+".txt", 'w+') {|f| f.write("") }
 	    end
-	    File.open($TrafficDir+"#{sanitizedhost}/#{sanitizedurl}/#{sanitizedurl}"+filecnt.to_s+".txt", 'w+') {|f| f.write(response) }
 	    response = injectFFReplace(response,sanitizedurl,getTLD(url),filecnt)
     end
     puts "finish parsing "+url
@@ -435,12 +438,16 @@ url = ""
 host = ""
 hostChopped = ""
 policyFile = ""
+p ""
+p ""
 p "A new request"
 if ($httpresponse.match(/\A[^{]/))               #response should not start w/ '{', otherwise it's a json response
+    #p $requestheader
     if (($httpresponse.match(/\A\s*\<[\!hH]/)!=nil)&&(!$httpresponse.match(/\A\s*\<\?[xX]/)))
         #getting the URL and host of the request
         if $requestheader =~ /GET\s(.*?)\sHTTP/     #get the URL of the request
 		url = $1
+		p "url is:" + url
 		if $requestheader =~ /Host:\s(.*)/  #get the host of the request
 		    host = $1
 		    hostChopped = host.chop     # The $1 matches the string with a CR added. we don't want that.
@@ -450,4 +457,3 @@ if ($httpresponse.match(/\A[^{]/))               #response should not start w/ '
         end
     end
 end
-

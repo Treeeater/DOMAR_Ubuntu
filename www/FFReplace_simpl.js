@@ -1172,9 +1172,9 @@ function writePolicy()
 		url = url.substr(0,url.indexOf("?"));
 	}
 	urlfile = url.replace(/[^a-zA-Z0-9]/g,"");	//\W also does the trick.
-	urlfile = urlfile.substr(0,63);						//restrict the file length
+	urlfile = urlfile.substr(0,240);						//restrict the file length
 	domain = domain.replace(/[^a-zA-Z0-9]/g,"");
-	domain = domain.substr(0,63);
+	domain = domain.substr(0,240);
 	var i;
 	var rawdata = window._record.getRecord();
 	// From here down: writing bytes to file. file is nsIFile, data is a string
