@@ -441,6 +441,7 @@ policyFile = ""
 p ""
 p ""
 p "A new request"
+if $user_id!=nil then p "by "+$user_id.to_s end
 if ($httpresponse.match(/\A[^{]/))               #response should not start w/ '{', otherwise it's a json response
     #p $requestheader
     if (($httpresponse.match(/\A\s*\<[\!hH]/)!=nil)&&(!$httpresponse.match(/\A\s*\<\?[xX]/)))

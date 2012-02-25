@@ -1,0 +1,36 @@
+GreasySpoon:
+
+#if we want to grab user info:
+modify/add "SpoonScript.icapuserheader=abcdefgh" to services.properties under $Greasyspoon/conf/
+
+------------------------------------------
+Squid:
+
+under /usr/local/squid/etc/squid.conf
+
+#if we want to enable ICAP:
+icap_enable on
+icap_preview_enable on
+icap_service service_req reqmod_precache bypass=0 icap://127.0.0.1:1344/reqmod
+adaptation_access service_req allow all
+icap_service service_resp respmod_precache bypass=0 icap://127.0.0.1:1344/respmod
+adaptation_access service_resp allow all
+
+#if we want to notify ICAP of our auth user name
+icap_send_client_username on 
+icap_client_username_header abcdefgh
+
+#using auth:
+auth_param basic program /usr/local/squid/libexec/ncsa_auth /usr/local/squid/etc/passwd
+auth_param basic children 5
+auth_param basic realm Squid proxy-caching web server
+auth_param basic credentialsttl 2 hours
+acl authenticatedUsers proxy_auth REQUIRED
+http_access allow authenticatedUsers
+
+#also comment out the http_access allow localhost/localnet line
+
+#generating passwd file:
+$ htpasswd -c passwdfile username
+
+
