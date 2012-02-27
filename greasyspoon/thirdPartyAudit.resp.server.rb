@@ -426,6 +426,7 @@ def process(response, url, host)
 		#found policy file, we can use it directly
 		response = convertResponse(response,textPattern,url,filecnt)
 		File.open($TrafficDir+"#{sanitizedhost}/#{sanitizedurl}/#{sanitizedurl}"+filecnt.to_s+".txt", 'w+') {|f| f.write("") }
+		if $user_id!=nil then File.open($TrafficDir+"user-traffic.txt","a+") {|f| f.write("#{$user_id} => #{sanitizedurl}#{filecnt}.txt\n")} end
 	    end
 	    response = injectFFReplace(response,sanitizedurl,getTLD(url),filecnt)
     end

@@ -117,14 +117,16 @@ def CheckModel(record, domain, url, id, relative)
 	accessHashA.each_key{|tld|
 		accessHashA[tld].each{|a|
 			if (!policyA.has_key? tld)
-				#haven't seen any scripts from this domain before
+				#haven't seen any scripts from this domain before, now we do not record a diff file for this, we just record it in model suggestion.
+=begin
 				if (!diffArrayA.has_key? tld) 
 					diffArrayA[tld] = Array.new
 					diffArrayA[tld].push(a)
 				else 
 					diffArrayA[tld].push(a)
 				end
-				#we also want to record this in a model suggestion file
+=end
+				#we also want to record this in a model suggestion file (works for both absolute and relative)
 				if (!recordedTLD.has_key? tld)
 					File.open($PolicyADir+domain+"/"+url+"/LIST_"+tld,'a'){|f| f.write(id+"\n")}
 					recordedTLD[tld]=true
@@ -161,12 +163,14 @@ def CheckModel(record, domain, url, id, relative)
 			accessHashR[tld].each{|a|
 				if (!policyR.has_key? tld)
 					#haven't seen any scripts from this domain before
+=begin
 					if (!diffArrayR.has_key? tld) 
 						diffArrayR[tld] = Array.new
 						diffArrayR[tld].push(a)
 					else 
 						diffArrayR[tld].push(a)
 					end
+=end
 				else
 					#we have seen scripts from this domain
 					if (!policyR[tld].include? a)
@@ -186,11 +190,15 @@ def CheckModel(record, domain, url, id, relative)
 		makeDirectory($DiffADir+domain+"/"+url+"/")
 		diffAFileHandle = File.open($DiffADir+domain+"/"+url+"/diff"+id.to_s+".txt","w")
 		diffArrayA.each_key{|tld|
+			makeDirectory($DiffADir+domain+"/"+url+"/"+tld+"/")
+			diffATLDHandle = File.open($DiffADir+domain+"/"+url+"/"+tld+"/diff"+id.to_s+".txt","w")
 			diffAFileHandle.write(tld+"\n")
 			diffArrayA[tld].each{|d|
 				diffAFileHandle.write(d+"\n")
+				diffATLDHandle.write(d+"\n")
 			}
 			diffAFileHandle.write("------------------------\n")
+			diffATLDHandle.close()
 		}
 		diffAFileHandle.close()
 	end
@@ -213,8 +221,11 @@ def CheckModel(record, domain, url, id, relative)
 		end
 		diffArrayR.each_key{|tld|
 			diffRFileHandle.write(tld+"\n")
+			makeDirectory($DiffRDir+domain+"/"+url+"/"+tld+"/")
+			diffRTLDHandle = File.open($DiffRDir+domain+"/"+url+"/"+tld+"/diff"+id.to_s+".txt","w")
 			diffArrayR[tld].each{|d|
 				diffRFileHandle.write(d+"\n")
+				diffRTLDHandle.write(d+"\n")
 				newAnchor = d.gsub(/^\/\/(.*?)[\/\s]/,'\1')		#\s is a bug, but we just get along with it.
 				if ((d!=newAnchor)&&(possiblePatches.has_key?(newAnchor)))
 					#generate a patch info
@@ -222,6 +233,7 @@ def CheckModel(record, domain, url, id, relative)
 				end
 			}
 			diffRFileHandle.write("------------------------\n")
+			diffRTLDHandle.close()
 		}
 		diffRFileHandle.close()
 		pf.close()
