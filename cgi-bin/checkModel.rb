@@ -245,19 +245,21 @@ def AdaptAnchor(domain, url)
 	if (!File.exists?($SpecialIdDir+domain+"/"+url+"/patch.txt")) then return
 	end
 	patchFile = File.read($SpecialIdDir+domain+"/"+url+"/patch.txt")
-	patchlines = Hash.new
+	patchlines = Hash.new			#key: googlesyndication3->0
+	patchlines2 = Hash.new			#key: googlesyndication3
 	patchFile.each_line{|l|
 		# l has \n
 		patchlines[l] = (patchlines[l]==nil) ? 1 : patchlines[l]+1
+		if (l.index("->")!=nil) then patchlines2[(l[0..l.index("->")-1])] = true end
 	}
 	patchlines.each_key{|l|
-		if (patchlines[l]>$PatchThreshold)
-			patchlines.delete(l)
+		if (l.index("->")==nil) then next end
+		if (l.index("=>")==nil) then next end
+		if ((patchlines[l]>$PatchThreshold)&&(patchlines2.has_key?(l[0..l.index("->")-1])))
 			l = l.chomp
-			if (l.index("->")==nil) then next end
-			if (l.index("=>")==nil) then next end
 			specialID = l[0..l.index("->")-1]
 			vicinityInfo = l[l.index("=>")+3..l.length]		#no \n in vicinity Info
+			patchlines2.delete(specialID)
 			anchorFile = File.read($SpecialIdDir+domain+"/"+url+"/"+url+".txt")
 			currentDomain = ""
 			currentId = ""
@@ -290,7 +292,8 @@ def AdaptAnchor(domain, url)
 		#we have changed anchors, we need to remove patch recommendations as well.
 		newPatchContent = ""
 		patchFile.each_line{|l|
-			if (patchlines.has_key?(l))
+			if (l.index("->")==nil) then next end
+			if (patchlines2.has_key?(l[0..l.index("->")-1]))
 				newPatchContent = newPatchContent + l
 			end
 		}
