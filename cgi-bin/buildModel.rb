@@ -164,6 +164,7 @@ def extractRecordsFromTrainingData(url, domain, trainingDataIndices)
 end
 
 def exportPolicy(extractedRecords, url, domain, targetDomain=nil)
+	#model building part we only record one access entry (the earliest one).
 	pFolderA = $PolicyADir + url + "/" + domain + "/policies/"
 	pFolderR = $PolicyRDir + url + "/" + domain + "/policies/"
 	pFolderHistoryA = $PolicyADir + url + "/" + domain + "/histories/"
@@ -179,7 +180,7 @@ def exportPolicy(extractedRecords, url, domain, targetDomain=nil)
 			fHistory = File.open(pFolderHistoryA+tld+".txt","w")
 			accessArrayA[tld].each_key{|xpath|
 				f.puts(xpath)#+"|:=>"+accessArray[tld][xpath].to_s)
-				fHistory.puts(xpath+"\n->Time Added:"+accessArrayA[tld][xpath][:mtime].to_s+"\n->Traffic ID:"+accessArrayA[tld][xpath][:id]+"\n->Time Deleted:\n\n")
+				fHistory.puts(xpath+"\n->Time Added:"+accessArrayA[tld][xpath][:mtime].to_s+"\n->Traffic ID:"+accessArrayA[tld][xpath][:id]+"\n->Time Deleted:\n->Accessed Entries:"+accessArrayA[tld][xpath][:id]+"\n\n")
 			}
 			f.close()
 			fHistory.close()
@@ -190,7 +191,7 @@ def exportPolicy(extractedRecords, url, domain, targetDomain=nil)
 			fHistory = File.open(pFolderHistoryA+targetDomain+".txt","w")
 			accessArrayA[targetDomain].each_key{|xpath|
 				f.puts(xpath)
-				fHistory.puts(xpath+"\n->Time Added:"+accessArrayA[targetDomain][xpath][:mtime].to_s+"\n->Traffic ID:"+accessArrayA[targetDomain][xpath][:id]+"\n->Time Deleted:\n\n")
+				fHistory.puts(xpath+"\n->Time Added:"+accessArrayA[targetDomain][xpath][:mtime].to_s+"\n->Traffic ID:"+accessArrayA[targetDomain][xpath][:id]+"\n->Time Deleted:\n->Accessed Entries:"+accessArrayA[targetDomain][xpath][:id]+"\n\n")
 			}
 			f.close()
 			fHistory.close()
@@ -204,7 +205,7 @@ def exportPolicy(extractedRecords, url, domain, targetDomain=nil)
 			fHistory = File.open(pFolderHistoryR+tld+".txt","w")
 			accessArrayR[tld].each_key{|xpath|
 				f.puts(xpath)#+"|:=>"+accessArray[tld][xpath].to_s)
-				fHistory.puts(xpath+"\n->Time Added:"+accessArrayR[tld][xpath][:mtime].to_s+"\n->Traffic ID:"+accessArrayR[tld][xpath][:id]+"\n->Time Deleted:\n\n")
+				fHistory.puts(xpath+"\n->Time Added:"+accessArrayR[tld][xpath][:mtime].to_s+"\n->Traffic ID:"+accessArrayR[tld][xpath][:id]+"\n->Time Deleted:\n->Accessed Entries:"+accessArrayR[tld][xpath][:id]+"\n\n")
 			}
 			f.close()
 			fHistory.close()
@@ -215,7 +216,7 @@ def exportPolicy(extractedRecords, url, domain, targetDomain=nil)
 			fHistory = File.open(pFolderHistoryR+targetDomain+".txt","w")
 			accessArrayR[targetDomain].each_key{|xpath|
 				f.puts(xpath)
-				fHistory.puts(xpath+"\n->Time Added:"+accessArrayR[targetDomain][xpath][:mtime].to_s+"\n->Traffic ID:"+accessArrayR[targetDomain][xpath][:id]+"\n->Time Deleted:\n\n")
+				fHistory.puts(xpath+"\n->Time Added:"+accessArrayR[targetDomain][xpath][:mtime].to_s+"\n->Traffic ID:"+accessArrayR[targetDomain][xpath][:id]+"\n->Time Deleted:\n->Accessed Entries:"+accessArrayR[targetDomain][xpath][:id]+"\n\n")
 			}
 			f.close()
 			fHistory.close()

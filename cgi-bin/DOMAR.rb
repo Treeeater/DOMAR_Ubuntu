@@ -19,9 +19,9 @@ $PreferenceListDir = "#{$HomeFolder}/Desktop/DOMAR/site_preferences/"
 $SpecialIdDir = "#{$HomeFolder}/Desktop/DOMAR/specialID/"
 $TrafficDir = "#{$HomeFolder}/Desktop/DOMAR/traffic/"
 $AnchorErrorDir = "#{$HomeFolder}/Desktop/DOMAR/anchorErrors/"
-$ModelThreshold = 3
+$ModelThreshold = 1
 $AnchorThreshold = 2
-$PatchDownThreshold = 10 #100
+$PatchDownThreshold = 3 #100
 $PatchUpThreshold = 5
 
 puts "Content-Type: text/html"

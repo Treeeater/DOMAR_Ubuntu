@@ -126,6 +126,8 @@ def CheckModel(record, domain, url, id, relative)
 	#done extracting accessHash from current record
 	recordedTLD = Hash.new
 	accessHashA.each_key{|tld|
+		historyContent = ""
+		if (File.exists?($PolicyADir+domain+"/"+url+"/histories/"+tld+".txt")) then historyContent = File.read($PolicyADir+domain+"/"+url+"/histories/"+tld+".txt") end
 		accessHashA[tld].each{|a|
 			if (!policyA.has_key? tld)
 				#haven't seen any scripts from this domain before, now we do not record a diff file for this, we just record it in model suggestion.
@@ -160,21 +162,32 @@ def CheckModel(record, domain, url, id, relative)
 				#we have seen scripts from this domain
 				if (!policyA[tld].include? a)
 					#but the models haven't included this access
-					if (!diffArrayA.has_key? tld) 
+					if (!diffArrayA.has_key?(tld)) 
 						diffArrayA[tld] = Array.new
 						diffArrayA[tld].push(a)
 					else 
 						diffArrayA[tld].push(a)
 					end
+					File.open($PolicyADir+domain+"/"+url+"/policies/"+tld+".txt","a"){|f| f.write(a+"\n")}		#add simple policy entry
+					historyContent += (a+"\n->Time Added:"+(Time.new.to_s)+"\n->Traffic ID:"+id.to_s+"\n->Time Deleted:\n->Accessed Entries:"+id.to_s+"\n\n")				#add policy history
+				else
+					#File.open("/home/yuchen/success","a"){|f| f.write(a+"\n")}
+					pointer = historyContent.index(a+"\n")
+					pointer = historyContent.index("\n->Accessed Entries:",pointer)
+					pointer = historyContent.index("\n", pointer+2)-1
+					historyContent = historyContent[0..pointer]+" "+id.to_s+historyContent[pointer+1..historyContent.length]
 				end
 			end
 		}
+		if (historyContent !="") then File.open($PolicyADir+domain+"/"+url+"/histories/"+tld+".txt","w") {|f| f.write(historyContent)} end
 	}
 	if (relative)
 		accessHashR.each_key{|tld|
+			historyContent = ""
+			if (File.exists?($PolicyRDir+domain+"/"+url+"/histories/"+tld+".txt")) then historyContent = File.read($PolicyRDir+domain+"/"+url+"/histories/"+tld+".txt") end
 			accessHashR[tld].each{|a|
 				if (!policyR.has_key? tld)
-					#haven't seen any scripts from this domain before
+					#haven't seen any scripts from this domain before, currently we don't do anything until a model is built (within a few accesses)
 =begin
 					if (!diffArrayR.has_key? tld) 
 						diffArrayR[tld] = Array.new
@@ -193,9 +206,20 @@ def CheckModel(record, domain, url, id, relative)
 						else 
 							diffArrayR[tld].push(a)
 						end
+						if (a.match(/\A\/\/\d+.*/)==nil)
+							#only add anchored entries to the model, if it's not an anchor yet, we just record it in diff file, not in the model.
+							File.open($PolicyRDir+domain+"/"+url+"/policies/"+tld+".txt","a"){|f| f.write(a+"\n")}		#add simple policy entry
+							historyContent += (a+"\n->Time Added:"+(Time.new.to_s)+"\n->Traffic ID:"+id.to_s+"\n->Time Deleted:\n->Accessed Entries:"+id.to_s+"\n\n")		#add policy history
+						end
+					else
+						pointer = historyContent.index(a+"\n")
+						pointer = historyContent.index("\n->Accessed Entries:",pointer)
+						pointer = historyContent.index("\n", pointer+2)-1
+						historyContent = historyContent[0..pointer]+" "+id.to_s+historyContent[pointer+1..historyContent.length]
 					end
 				end
 			}
+			if (historyContent !="") then File.open($PolicyRDir+domain+"/"+url+"/histories/"+tld+".txt","w") {|f| f.write(historyContent)} end
 		}
 	end
 	if (!diffArrayA.empty?)
@@ -211,7 +235,6 @@ def CheckModel(record, domain, url, id, relative)
 			}
 			diffAFileHandle.write("------------------------\n")
 			diffATLDHandle.close()
-			#FIXME:add this to model no matter what
 		}
 		diffAFileHandle.close()
 	end
@@ -220,30 +243,17 @@ def CheckModel(record, domain, url, id, relative)
 		diffRFileHandle = File.open($DiffRDir+domain+"/"+url+"/diff"+id.to_s+".txt","w")
 		pfh = File.open($SpecialIdDir+domain+"/"+url+"/patchup.txt","a")
 		traffic = File.read($TrafficDir+domain+"/"+url+"/"+url+id.to_s+".txt")
-=begin
-		possiblePatches = Hash.new
-		if (File.exists?($AnchorErrorDir + domain + "/" + url + "/error" + id.to_s + ".txt"))
-			#if previously we have recorded an error in parsing, now we want to try to handle it.
-			efh = File.open($AnchorErrorDir + domain + "/" + url + "/error" + id.to_s + ".txt", "r")
-			while (line = efh.gets)
-				a = line.index(' => ')
-				b = line.index(' ]> ')
-				if ((a!=nil)&&(b!=nil))
-					possiblePatches[line[a+4..b-1]]=line[b+4..line.length]
-				end
-			end
-			efh.close()
-		end
-=end
 		diffArrayR.each_key{|tld|
 			diffRFileHandle.write(tld+"\n")
 			makeDirectory($DiffRDir+domain+"/"+url+"/"+tld+"/")
 			diffRTLDHandle = File.open($DiffRDir+domain+"/"+url+"/"+tld+"/diff"+id.to_s+".txt","w")
 			diffArrayR[tld].each{|d|
 				if (d.match(/\A\/\/id\d+.*/)!=nil)
-					#FIXME:if the violation starts with 'id', we know it's already an anchor. we immediately add it to the model and record the traffic id of this entry. 
+					#if the violation starts with 'id', we know it's already an anchor. we simply record them.
+					diffRFileHandle.write(d+"\n")
+					diffRTLDHandle.write(d+"\n")
 				elsif (d.match(/\A\/\/\d+.*/)!=nil)
-					#otherwise if the violation starts with a digital number, we know it's not in anchor yet. we want to consider adding it as an anchor, we also record diff.			
+					#otherwise if the violation starts with a digital number, we know it's not in anchor yet. we want to consider adding it as an anchor.			
 					diffRFileHandle.write(d+"\n")
 					diffRTLDHandle.write(d+"\n")
 					newAnchor = d.gsub(/\A\/\/(.*?)\//,'\1')
@@ -297,16 +307,28 @@ def AdaptAnchor(domain, url)
 		original = File.read($SpecialIdDir+domain+"/"+url+"/"+url+".txt")
 		id = 0
 		original.each_line{|l|
-			cur_id = l.gsub(/\ATag\s(\d+)\s.*/,'\1')
+			cur_id = l.gsub(/\A#?Tag\s(\d+)\s.*/,'\1')
 			if (cur_id.to_i>id) then id = cur_id.to_i end
 		}
 		linesToDelete.each{|l|
 			deleteStartPointer = original.index(l)
 			deleteEndPointer = original.index("\n",deleteStartPointer)
-			deleteEndPointer = original.index("\n",deleteEndPointer+1)	#delete next line as well.
-			original = original[0..deleteStartPointer-1]+original[deleteEndPointer+1..original.length]
+			#deleteEndPointer = original.index("\n",deleteEndPointer+1)	#delete next line as well.
+			original = original[0..deleteStartPointer-1]+"#"+original[deleteStartPointer..deleteEndPointer]+"#"+original[deleteEndPointer+1..original.length]		#Currently it just adds hash to beginning of line.
 			patchdownFile.gsub!(l,'')
-			#FIXME:delete all model entries associated with this anchor.
+			#delete all model entries associated with this anchor.
+			Dir.glob($PolicyRDir+domain+"/"+url+"/policies/*"){|f|
+				content = File.read(f)
+				idToDelete = l.gsub(/\A#?Tag\s(\d+)\s.*/,'\1')
+				modifiedContent = content
+				content.each_line{|l2|
+					if (l2.match(/\A\/\/id#{Regexp.quote(idToDelete)}/)!=nil)
+						modifiedContent.slice!(l2)			#l2 already has \n in it.
+					end
+				}
+				File.open(f,"w"){|fh| fh.write(modifiedContent)}
+			}
+			#FIXME:enter deletion time for all model histories associated with this anchor
 		}
 		linesToAdd.each{|l|
 			if (l.index(" => ")==nil) then next end
