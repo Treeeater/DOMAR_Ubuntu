@@ -13,7 +13,12 @@ def identifyId(traffic, record)
 	record.each_line {|r|
 		r=r.chomp
 		if (r[0..1]=="//")
-			url = r[r.index("|:=>")+5..r.length-1]
+			url = ""
+			if (r.index("<=|:|")==nil)
+				url = r[r.index("|:=>")+5..r.length-1]
+			else
+				url = r[r.index("|:=>")+5..r.index("<=|:|")-2]
+			end
 			specialId = r.gsub(/^\/\/(\d+?)[\s\/].*/m,'\1')
 			domain = getTLD(url)
 			if (result.has_key? domain)
@@ -123,8 +128,8 @@ def learnTextPattern(traffic, specialIds, textPattern)
 			attrIndex = traffic.index(/specialId\s=\s\'#{id}\'/)
 			closinggt = findclosinggt(traffic, attrIndex)
 			openinglt = findopeninglt(traffic, attrIndex)
-			tagInfo = traffic[openinglt..closinggt].gsub(/\sspecialId\s=\s\'\d+\'/,'')
-			vicinityInfo = (traffic[closinggt+1,100].gsub(/\sspecialId\s=\s\'\d+\'/,'').gsub(/[\r\n]/,''))[0..30]
+			tagInfo = traffic[openinglt..closinggt].gsub(/\sspecialId\s=\s\'.*?\'/,'')
+			vicinityInfo = (traffic[closinggt+1,100].gsub(/\sspecialId\s=\s\'.*?\'/,'').gsub(/[\r\n]/,''))[0..30]
 			if (!$checked.include?(tagInfo + vicinityInfo))
 				textPattern[k].push( [ tagInfo , vicinityInfo ] )
 				$checked.push(tagInfo+vicinityInfo)
@@ -174,17 +179,18 @@ def extractTextPattern(trafficFile,recordFile,outputFileName)
 	#p result
 	#p textPattern
 	fh = File.new(outputFileName,'w')
+	i = 0
 	textPattern.each_key{|k|
-		i = 0
-		fh.write("Domain:= "+k)
+		#fh.write("Domain:= "+k)
 		textPattern[k].each_index{|id|
 			i+=1
-			fh.write("\n")
-			fh.write("Tag:= "+textPattern[k][id][0])
-			fh.write(i.to_s+"\n")
+			fh.write("Tag ")
+			fh.write(i.to_s)
+			fh.write(" := "+textPattern[k][id][0]+"\n")
 			fh.write("&"+textPattern[k][id][1].to_s)
+			fh.write("\n")
 		}
-		fh.write("\n-----\n")
+		#fh.write("\n-----\n")
 	}
 end
 $checked = Array.new

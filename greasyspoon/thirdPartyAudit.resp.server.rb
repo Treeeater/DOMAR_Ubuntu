@@ -186,15 +186,15 @@ def convertResponse(response, textPattern, url, filecnt)
 			currentDomain = l[9..l.length]
 			next
 		end
-		if (l[0..5]=='Tag:= ')
+		if (l[0..2]=='Tag')
 			matches = false
-			id = currentDomain + l.gsub(/.*\>(\d+)$/,'\1')
-			if (processedNodes[id]==true)
+			id = currentDomain + l.gsub(/\ATag\s(\d+).*/,'\1')
+			if (processedNodes[id]!=nil)
 				next			#we don't want to add multiples of specialId to a node.
 			end
-			processedNodes[id]=true
+			processedNodes[id]=l
 			#tagName = l.gsub(/\<(\w*).*/,'\1')
-			toMatch = l.gsub(/Tag:=\s(\<.*\>)\d*/,'\1')
+			toMatch = l.gsub(/.*?(\<.*\>)$/,'\1')
 			toMatcht = toMatch
 =begin
 			#this is the code base to deal with attributes shuffled. However there is a bug. if we need to turn this back on we need to fix it.
@@ -228,6 +228,7 @@ def convertResponse(response, textPattern, url, filecnt)
 				i+=1
 			end
 			if (matches==false)
+				File.open($SpecialIdDir+sanitizedhost+"/"+sanitizedurl+"/patchdown.txt","a"){|f| f.write(l+"\n")}
 				error = true
 				errormsg += "failed to find a match for "+toMatcht+"\n"
 			end
@@ -253,6 +254,9 @@ def convertResponse(response, textPattern, url, filecnt)
 				#we have found this is the only one that matches.
 				listToAdd[id]=candidates.clone		#candidates only have one element - the correct one.
 			elsif (found == 0)
+				listToAdd.delete(id)
+				File.open($SpecialIdDir+sanitizedhost+"/"+sanitizedurl+"/patchdown.txt","a"){|f| f.write(processedNodes[id]+"\n")}
+=begin
 				candidates = listToAdd[id].clone		#temporarily store the previously found elements (all of them are incorrect) in a new array.
 				listToAdd.delete(id)				#remove the original item
 				#add all original items differently.
@@ -265,11 +269,14 @@ def convertResponse(response, textPattern, url, filecnt)
 					fh.write(id + " => " + idpatched + " ]> " + vicinityList[id][c] + "\n" )
 				}
 				fh.close()
+=end
 				error = true
 				errormsg += "multiple matches found for: "+ id + ", but no vicinity matches original model.\n"
 				p errormsg
 			elsif (found > 1)
 				listToAdd.delete(id)				#remove the original item
+				File.open($SpecialIdDir+sanitizedhost+"/"+sanitizedurl+"/patchdown.txt","a"){|f| f.write(processedNodes[id]+"\n")}
+=begin
 				#add all original items differently, FIXME:we should include more vicinity info.
 				#store vicinity information in a cache folder
 				makeDirectory($AnchorErrorDir+sanitizedhost+"/"+sanitizedurl+"/")
@@ -280,6 +287,7 @@ def convertResponse(response, textPattern, url, filecnt)
 					fh.write(id + " => " + idpatched + " ]> " + candidatesVicinity[c] + "\n" )
 				}
 				fh.close()
+=end
 				error = true
 				errormsg += "multiple matches found for: "+ id + ", because more than 1 vicinity matches original model. found a total of "+found.to_s+" matches.\n"
 				p errormsg
@@ -300,7 +308,7 @@ def convertResponse(response, textPattern, url, filecnt)
 =end
 	listToAdd.each_key{|id|
 		index = listToAdd[id][0]		#FIXME: this actually can be 0
-		content = " specialId=\"#{id}\""
+		content = " specialId = \'id#{id}\'"
 		response = response.insert(index, content)
 		listToAdd.each_key{|i|
 			#N squared time complexity, we could definitely optimize this thing but I don't do it now.
@@ -322,7 +330,7 @@ def convertResponse(response, textPattern, url, filecnt)
 	return response
 end
 
-def initialTraining(response)
+def universalTraining(response)
     globalNodeIdCount = 0
     pointer = 0
     startingTag = response.index('<',pointer)
@@ -359,7 +367,12 @@ def initialTraining(response)
         end
         #we need to add special attrs, now we should find the closing greater than for this opening tag.
         #dealing with '>' in attrs.
+	startingPointer = pointer
         pointer = findclosinggt(response,pointer)
+	if (response[startingPointer..pointer].downcase.index('specialid')!=nil)	#skip the nodes that are already marked.
+		startingTag = response.index('<',pointer)
+		next
+	end
         globalNodeIdCount+=1
         if (response[pointer-1..pointer-1]=='/') 
             response = response[0..pointer-2] + " specialId = \'" + globalNodeIdCount.to_s + "\'" + response[pointer-1..response.length-1]      #self closing tags
@@ -368,7 +381,7 @@ def initialTraining(response)
         end
         startingTag = response.index('<',pointer)
     end   
-	return response
+    return response
 end
 
 
@@ -417,17 +430,13 @@ def process(response, url, host)
 	    #p response[0..10]
 	
 	    textPattern = collectTextPattern(sanitizedurl, sanitizedhost)
-	    if (textPattern==nil)
-		#no policy file yet, we need to train one.
-		response = initialTraining(response)
-	    	File.open($TrafficDir+"#{sanitizedhost}/#{sanitizedurl}/#{sanitizedurl}"+filecnt.to_s+".txt", 'w+') {|f| f.write(response) }
-		#tryToBuildModel(sanitizedurl)
-	    else
+	    if (textPattern!=nil)
 		#found policy file, we can use it directly
 		response = convertResponse(response,textPattern,url,filecnt)
-		File.open($TrafficDir+"#{sanitizedhost}/#{sanitizedurl}/#{sanitizedurl}"+filecnt.to_s+".txt", 'w+') {|f| f.write("") }
-		if $user_id!=nil then File.open($TrafficDir+"user-traffic.txt","a+") {|f| f.write("#{$user_id} => #{sanitizedurl}#{filecnt}.txt\n")} end
 	    end
+	    response = universalTraining(response)
+	    File.open($TrafficDir+"#{sanitizedhost}/#{sanitizedurl}/#{sanitizedurl}"+filecnt.to_s+".txt", 'w+') {|f| f.write(response) }
+	    if $user_id!=nil then File.open($TrafficDir+"user-traffic.txt","a+") {|f| f.write("#{$user_id} => #{sanitizedurl}#{filecnt}.txt\n")} end
 	    response = injectFFReplace(response,sanitizedurl,getTLD(url),filecnt)
     end
     puts "finish parsing "+url

@@ -296,7 +296,9 @@ var getCallerInfo = function(caller) {
 			}
 		}
 		if (untrustedStack == "") return null;
-		return untrustedStack+ignored;
+		returnstring = untrustedStack+ignored;
+		if (returnstring[returnstring.length-1]=="\n") returnstring=returnstring.substr(0,returnstring.length-1);	//chomp
+		return returnstring;
     }
 };
 var getFullCallerInfo = function() {
@@ -951,7 +953,7 @@ for (i=0; i<allElementsType.length; i++)
 			if (recordedDOMActions["getElementsByTagName called on "+thispath+" Tag: "+arguments[0]+callerInfo]!=true) 
 			{ 
 				recordedDOMActions["getElementsByTagName called on "+thispath+" Tag: "+arguments[0]+callerInfo]=true; 
-				record[DOMRecord].push({what:"getElementsByTagName called on "+thispath+" Tag: "+arguments[0],when:seqID,who:callerInfo,v:(enableV?getV(this):"")});			
+				record[DOMRecord].push({what:thispath,when:seqID,who:callerInfo,v:(enableV?getV(this):""),extraInfo:"getElementsByTagName, Tag:"+arguments[0]});			
 			}
 		}
 		return func.apply(this,arguments);
@@ -972,7 +974,7 @@ for (i=0; i<allElementsType.length; i++)
 			if (recordedDOMActions["getElementsByClassName called on "+thispath+" Class: "+arguments[0]+callerInfo]!=true) 
 			{ 
 				recordedDOMActions["getElementsByClassName called on "+thispath+" Class: "+arguments[0]+callerInfo]=true; 
-				record[DOMRecord].push({what:"getElementsByClassName called on "+thispath+" Class: "+arguments[0],when:seqID,who:callerInfo,v:(enableV?getV(this):"")});
+				record[DOMRecord].push({what:thispath,when:seqID,who:callerInfo,v:(enableV?getV(this):""),extraInfo:"getElementsByClassName, Tag:"+arguments[0]});
 			}
 		}
 		return func.apply(this,arguments);
@@ -993,7 +995,7 @@ for (i=0; i<allElementsType.length; i++)
 			if (recordedDOMActions["getElementsByTagNameNS called on "+thispath+" NS: "+arguments[0]+" Tag: "+arguments[1]+callerInfo]!=true) 
 			{ 
 				recordedDOMActions["getElementsByTagNameNS called on "+thispath+" NS: "+arguments[0]+" Tag: "+arguments[1]+callerInfo]=true; 
-				record[DOMRecord].push({what:"getElementsByTagNameNS called on "+thispath+" NS: "+arguments[0]+" Tag: "+arguments[1],when:seqID,who:callerInfo,v:(enableV?getV(this):"")});
+				record[DOMRecord].push({what:thispath,when:seqID,who:callerInfo,v:(enableV?getV(this):""),extraInfo:"getElementsByTagNameNS, NS: "+arguments[0]+", Tag: "+arguments[1]});
 			}
 		}
 		return func.apply(this,arguments);
@@ -1015,7 +1017,7 @@ for (i=0; i<allElementsType.length; i++)
 				if (recordedDOMActions["getAttribute specialId called on "+thispath+callerInfo]!=true) 
 				{ 
 					recordedDOMActions["getAttribute specialId called on "+thispath+callerInfo]=true; 
-					record[DOMRecord].push({what:"getAttribute specialId called on "+thispath,when:seqID,who:callerInfo,v:(enableV?getV(this):"")});
+					record[DOMRecord].push({what:thispath,when:seqID,who:callerInfo,v:(enableV?getV(this):""),extraInfo:"getAttribute specialId called"});
 				}
 			}
 		}
@@ -1038,7 +1040,7 @@ for (i=0; i<allElementsType.length; i++)
 				if (recordedDOMActions["setAttribute specialId called on "+thispath+" attr: "+arguments[1]+callerInfo]!=true) 
 				{ 
 					recordedDOMActions["setAttribute specialId called on "+thispath+" attr: "+arguments[1]+callerInfo]=true; 
-					record[DOMRecord].push({what:"setAttribute specialId called on "+thispath+" attr: "+arguments[1],when:seqID,who:callerInfo,v:(enableV?getV(this):"")});
+					record[DOMRecord].push({what:thispath,when:seqID,who:callerInfo,v:(enableV?getV(this):""),extraInfo:"setAttribute specialId called, attr: "+arguments[1]});
 				}
 			}
 		}
@@ -1061,7 +1063,7 @@ for (i=0; i<allElementsType.length; i++)
 				if (recordedDOMActions["hasAttribute specialId called on "+thispath+callerInfo]!=true) 
 				{ 
 					recordedDOMActions["hasAttribute specialId called on "+thispath+callerInfo]=true; 
-					record[DOMRecord].push({what:"hasAttribute specialId called on "+thispath,when:seqID,who:callerInfo,v:(enableV?getV(this):"")});
+					record[DOMRecord].push({what:thispath,when:seqID,who:callerInfo,v:(enableV?getV(this):""),extraInfo:"hasAttribute specialId called"});
 				}
 			}
 		}
@@ -1133,7 +1135,7 @@ for (i=0; i<allElementsType.length; i++)
 			if (recordedDOMActions['Read innerHTML of this element: '+thispath+'!'+callerInfo]!=true) 
 			{ 
 				recordedDOMActions['Read innerHTML of this element: '+thispath+'!'+callerInfo]=true; 
-				record[DOMRecord].push({what:'Read innerHTML of this element: '+thispath+'!',when:seqID,who:callerInfo,v:(enableV?getV(this):"")});
+				record[DOMRecord].push({what:thispath,when:seqID,who:callerInfo,v:(enableV?getV(this):""),extraInfo:"innerHTML read"});
 			}
 		}
 		return oldInnerHTMLGetter.call(this,str);
@@ -1150,7 +1152,7 @@ for (i=0; i<allElementsType.length; i++)
 			if (recordedDOMActions['Read textContent of this element: '+thispath+'!'+callerInfo]!=true) 
 			{ 
 				recordedDOMActions['Read textContent of this element: '+thispath+'!'+callerInfo]=true; 
-				record[DOMRecord].push({what:'Read textContent of this element: '+thispath+'!',when:seqID,who:callerInfo,v:(enableV?getV(this):"")});
+				record[DOMRecord].push({what:thispath,when:seqID,who:callerInfo,v:(enableV?getV(this):""),extraInfo:"textContent read"});
 			}
 		}
 		return oldTextContentGetter.call(this,str);
@@ -1191,7 +1193,8 @@ function writePolicy()
 			rawstring = rawstring + rawdata[0][i].what;
 			if ((rawdata[0][i].v)&&(rawdata[0][i].v!="")) rawstring = rawstring +" <=:| "+rawdata[0][i].v;
 			rawstring = rawstring + " |:=> "+rawdata[0][i].who;
-			rawstring += "\n";
+			if ((rawdata[0][i].extraInfo)&&(rawdata[0][i].extraInfo!="")) rawstring = rawstring +" <=|:| "+rawdata[0][i].extraInfo;
+			rawstring += "\n\n";
 		}
 	}
 	rawstring = rawstring + "\nEnd of DOM node access\n---------------------------------------\n";
@@ -1200,7 +1203,7 @@ function writePolicy()
 		//1 means window accesses;
 		if ((rawdata[1][i].what!="")&&(rawdata[1][i].who!="trusted"))
 		{
-			rawstring = rawstring + rawdata[1][i].what+" |:=> "+rawdata[1][i].who+"\n";
+			rawstring = rawstring + rawdata[1][i].what+" |:=> "+rawdata[1][i].who+"\n\n";
 		}
 	}
 	rawstring = rawstring + "\nEnd of window special property access\n---------------------------------------\n";
@@ -1209,7 +1212,7 @@ function writePolicy()
 		//2 means document accesses;
 		if ((rawdata[2][i].what!="")&&(rawdata[2][i].who!="trusted"))
 		{
-			rawstring = rawstring + rawdata[2][i].what+" |:=> "+rawdata[2][i].who+"\n";
+			rawstring = rawstring + rawdata[2][i].what+" |:=> "+rawdata[2][i].who+"\n\n";
 		}
 	}
 	rawstring = rawstring + "\nEnd of document special property access\n";						

@@ -19,9 +19,10 @@ $PreferenceListDir = "#{$HomeFolder}/Desktop/DOMAR/site_preferences/"
 $SpecialIdDir = "#{$HomeFolder}/Desktop/DOMAR/specialID/"
 $TrafficDir = "#{$HomeFolder}/Desktop/DOMAR/traffic/"
 $AnchorErrorDir = "#{$HomeFolder}/Desktop/DOMAR/anchorErrors/"
-$ModelThreshold = 10
-$AnchorThreshold = 5
-$PatchThreshold = 5
+$ModelThreshold = 3
+$AnchorThreshold = 2
+$PatchDownThreshold = 10 #100
+$PatchUpThreshold = 5
 
 puts "Content-Type: text/html"
 puts
@@ -98,24 +99,6 @@ else
 	CheckModel(recordTrace, recordDomain, recordURL, recordId, relative)
 	AdaptAnchor(recordDomain, recordURL)
 end
-=begin
-policyFiles = Dir.glob($PolicyRDir+recordDomain+"/"+recordURL+"/*")
-if (policyFiles.empty?)
-	#need to check if we want to build model
-	if (files.size >= $ModelThreshold)
-		#We want to build a model
-		#File.open("/home/yuchen/success",'a+'){|fht| fht.write(files.size.to_s)}
-		BuildModel(recordDomain, recordURL)
-	end
-	#else we do nothing, wait for more record.
-else
-	#we have the model, check it.
-	policyA = ExtractPolicyFromFile($PolicyADir,recordDomain,recordURL)
-	policyR = Hash.new
-	if relative then policyR = ExtractPolicyFromFile($PolicyRDir,recordDomain,recordURL)
-	end
-end
-=end
 puts "<h1>!</h1>"
 puts "</body>"
 puts "</html>"

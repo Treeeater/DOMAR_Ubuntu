@@ -80,64 +80,76 @@ def extractRecordsFromTrainingData(url, domain, trainingDataIndices)
 	#rFolder = $RecordDir + url + "/" + domain + "/"
 	#files = Dir.glob(rFolder+"*")
 	files = Array.new
+	trainingDataIndices = trainingDataIndices.sort_by{|a| File.mtime($RecordDir + url + "/" + domain + "/record"+a+".txt")}		#sort by modifying time
 	trainingDataIndices.each{|t|
 		files.push($RecordDir + url + "/" + domain + "/record"+t+".txt")
 	}
 	files.each{|fileName|
+		mTime = File.mtime(fileName)
+		id = fileName.gsub(/.*\/record(\d+)\.txt$/,'\1')
 		f = File.open(fileName, 'r')
 		while (line = f.gets)
 			line=line.chomp
 			_wholoc1 = line.index(" |:=> ")
 			_wholoc2 = line.index(" <=:| ")
+			_wholoc3 = line.index(" <=|:| ")
 			if (_wholoc1==nil)
 				next
 			end
+			_who = line[_wholoc1+6..line.length]		#source of access
+			if (_wholoc3 != nil)
+				_who = line[_wholoc1+6.._wholoc3-1]	#get rid of the extraInfo.
+			end
 			if (_wholoc2==nil)
-				_whatA = line[0.._wholoc1]
-				_who = line[_wholoc1+6..line.length]
+				_whatA = line[0.._wholoc1-1]
+				if (_wholoc3 != nil)
+					_whatA = _whatA + " ," + line[_wholoc3+7..line.length]
+				end
 				_tld = getTLD(_who)
 				if (accessHashA[_tld]==nil)
-					#2-level array
-					#accessHash[_tld] = Hash.new
-					accessHashA[_tld] = Array.new
+					accessHashA[_tld] = Hash.new
 				end
 				#If we want to care about the number of accesses of each node, we uncomment the next line and make necessary changes
 				#accessHash[_tld][_what] = (accessHash[_tld][_what]==nil) ? 1 : accessHash[_tld][_what]+1
-				if (!accessHashA[_tld].include? _whatA)
-					accessHashA[_tld].push(_whatA)
+				if (!accessHashA[_tld].has_key? _whatA)
+					accessHashA[_tld][_whatA] = {:mtime=>mTime,:id=>id}
 				end
 				if (line[0]!='/')
 					#not DOM node access, but we still need to push it to relative model.
 					if (accessHashR[_tld]==nil)
-						accessHashR[_tld] = Array.new
+						accessHashR[_tld] = Hash.new
 					end
 					if (!accessHashR[_tld].include? _whatA)
-						accessHashR[_tld].push(_whatA)
+						accessHashR[_tld][_whatA] = {:mtime=>mTime,:id=>id}
 					end
 				end
 			else
 				#relative XPATH
-				_whatR = line[0.._wholoc2]
-				_whatA = line[_wholoc2+6.._wholoc1]
-				_who = line[_wholoc1+6..line.length]
+				_whatR = line[0.._wholoc2-1]
+				_whatA = line[_wholoc2+6.._wholoc1-1]
+				if (_wholoc3 != nil)
+					_whatA = _whatA + " ," + line[_wholoc3+7..line.length]
+					_whatR = _whatR + " ," + line[_wholoc3+7..line.length]
+				end
 				_tld = getTLD(_who)
 				if (accessHashR[_tld]==nil)
-					accessHashR[_tld] = Array.new
+					accessHashR[_tld] = Hash.new
 				end
 				if (accessHashA[_tld]==nil)
-					accessHashA[_tld] = Array.new
+					accessHashA[_tld] = Hash.new
 				end
-				if (!accessHashR[_tld].include? _whatR)
-					accessHashR[_tld].push(_whatR)
+				if (!accessHashR[_tld].has_key? _whatR)
+					accessHashR[_tld][_whatR] = {:mtime=>mTime,:id=>id}
 				end
-				if (!accessHashA[_tld].include? _whatA)
-					accessHashA[_tld].push(_whatA)
+				if (!accessHashA[_tld].has_key? _whatA)
+					accessHashA[_tld][_whatA] = {:mtime=>mTime,:id=>id}
 				end
 			end
 		end
 		f.close()
 	}
 	p "done learning basic model."
+=begin
 	#sort accessHash in an alphebatically order
 	accessHashA.each_key{|_tld|
 		accessHashA[_tld] = accessHashA[_tld].sort
@@ -146,6 +158,7 @@ def extractRecordsFromTrainingData(url, domain, trainingDataIndices)
 		accessHashR[_tld] = accessHashR[_tld].sort
 	}
 	p "done sorting all tlds."
+=end
 	temp = ExtractedRecords.new(accessHashR, accessHashA)
 	return temp
 end
@@ -153,24 +166,34 @@ end
 def exportPolicy(extractedRecords, url, domain, targetDomain=nil)
 	pFolderA = $PolicyADir + url + "/" + domain + "/policies/"
 	pFolderR = $PolicyRDir + url + "/" + domain + "/policies/"
+	pFolderHistoryA = $PolicyADir + url + "/" + domain + "/histories/"
+	pFolderHistoryR = $PolicyRDir + url + "/" + domain + "/histories/"
 	makeDirectory(pFolderA)
 	makeDirectory(pFolderR)
+	makeDirectory(pFolderHistoryA)
+	makeDirectory(pFolderHistoryR)
 	accessArrayA = extractedRecords.recordsA
 	if (targetDomain==nil)
 		accessArrayA.each_key{|tld|
 			f = File.open(pFolderA+tld+".txt","w")
-			accessArrayA[tld].each{|xpath|
+			fHistory = File.open(pFolderHistoryA+tld+".txt","w")
+			accessArrayA[tld].each_key{|xpath|
 				f.puts(xpath)#+"|:=>"+accessArray[tld][xpath].to_s)
+				fHistory.puts(xpath+"\n->Time Added:"+accessArrayA[tld][xpath][:mtime].to_s+"\n->Traffic ID:"+accessArrayA[tld][xpath][:id]+"\n->Time Deleted:\n\n")
 			}
 			f.close()
+			fHistory.close()
 		}
 	else
 		if (accessArrayA[targetDomain]!=nil)
 			f = File.open(pFolderA+targetDomain+".txt","w")
-			accessArrayA[targetDomain].each{|xpath|
-				f.puts(xpath)#+"|:=>"+accessArray[tld][xpath].to_s)
+			fHistory = File.open(pFolderHistoryA+targetDomain+".txt","w")
+			accessArrayA[targetDomain].each_key{|xpath|
+				f.puts(xpath)
+				fHistory.puts(xpath+"\n->Time Added:"+accessArrayA[targetDomain][xpath][:mtime].to_s+"\n->Traffic ID:"+accessArrayA[targetDomain][xpath][:id]+"\n->Time Deleted:\n\n")
 			}
 			f.close()
+			fHistory.close()
 		end
 	end
 
@@ -178,18 +201,24 @@ def exportPolicy(extractedRecords, url, domain, targetDomain=nil)
 	if (targetDomain==nil)
 		accessArrayR.each_key{|tld|
 			f = File.open(pFolderR+tld+".txt","w")
-			accessArrayR[tld].each{|xpath|
+			fHistory = File.open(pFolderHistoryR+tld+".txt","w")
+			accessArrayR[tld].each_key{|xpath|
 				f.puts(xpath)#+"|:=>"+accessArray[tld][xpath].to_s)
+				fHistory.puts(xpath+"\n->Time Added:"+accessArrayR[tld][xpath][:mtime].to_s+"\n->Traffic ID:"+accessArrayR[tld][xpath][:id]+"\n->Time Deleted:\n\n")
 			}
 			f.close()
+			fHistory.close()
 		}
 	else
 		if (accessArrayR[targetDomain]!=nil)
 			f = File.open(pFolderR+targetDomain+".txt","w")
-			accessArrayR[targetDomain].each{|xpath|
-				f.puts(xpath)#+"|:=>"+accessArray[tld][xpath].to_s)
+			fHistory = File.open(pFolderHistoryR+targetDomain+".txt","w")
+			accessArrayR[targetDomain].each_key{|xpath|
+				f.puts(xpath)
+				fHistory.puts(xpath+"\n->Time Added:"+accessArrayR[targetDomain][xpath][:mtime].to_s+"\n->Traffic ID:"+accessArrayR[targetDomain][xpath][:id]+"\n->Time Deleted:\n\n")
 			}
 			f.close()
+			fHistory.close()
 		end
 	end
 end
