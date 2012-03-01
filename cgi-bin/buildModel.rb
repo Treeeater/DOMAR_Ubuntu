@@ -204,6 +204,7 @@ def exportPolicy(extractedRecords, url, domain, targetDomain=nil)
 			f = File.open(pFolderR+tld+".txt","w")
 			fHistory = File.open(pFolderHistoryR+tld+".txt","w")
 			accessArrayR[tld].each_key{|xpath|
+				if (xpath =~ /\/\/\d+.*/) then next end			#ignore unanchored accesses.
 				f.puts(xpath)#+"|:=>"+accessArray[tld][xpath].to_s)
 				fHistory.puts(xpath+"\n->Time Added:"+accessArrayR[tld][xpath][:mtime].to_s+"\n->Traffic ID:"+accessArrayR[tld][xpath][:id]+"\n->Time Deleted:\n->Accessed Entries:"+accessArrayR[tld][xpath][:id]+"\n\n")
 			}
@@ -215,6 +216,7 @@ def exportPolicy(extractedRecords, url, domain, targetDomain=nil)
 			f = File.open(pFolderR+targetDomain+".txt","w")
 			fHistory = File.open(pFolderHistoryR+targetDomain+".txt","w")
 			accessArrayR[targetDomain].each_key{|xpath|
+				if (xpath =~ /\/\/\d+.*/) then next end			#ignore unanchored accesses.
 				f.puts(xpath)
 				fHistory.puts(xpath+"\n->Time Added:"+accessArrayR[targetDomain][xpath][:mtime].to_s+"\n->Traffic ID:"+accessArrayR[targetDomain][xpath][:id]+"\n->Time Deleted:\n->Accessed Entries:"+accessArrayR[targetDomain][xpath][:id]+"\n\n")
 			}

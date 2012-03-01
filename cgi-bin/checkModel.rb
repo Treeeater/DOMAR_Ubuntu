@@ -238,6 +238,7 @@ def CheckModel(record, domain, url, id, relative)
 		}
 		diffAFileHandle.close()
 	end
+	suggestedAnchors = Array.new
 	if ((relative)&&(!diffArrayR.empty?))
 		makeDirectory($DiffRDir+domain+"/"+url+"/")
 		diffRFileHandle = File.open($DiffRDir+domain+"/"+url+"/diff"+id.to_s+".txt","w")
@@ -256,15 +257,16 @@ def CheckModel(record, domain, url, id, relative)
 					#otherwise if the violation starts with a digital number, we know it's not in anchor yet. we want to consider adding it as an anchor.			
 					diffRFileHandle.write(d+"\n")
 					diffRTLDHandle.write(d+"\n")
-					newAnchor = d.gsub(/\A\/\/(.*?)\//,'\1')
-					newAnchor = d.gsub(/\A\/\/(.*)$/,'\1')
-					if (d!=newAnchor)
+					newAnchor = d.gsub(/\A\/\/(\d+)$/,'\1')			#cater //393
+					newAnchor = newAnchor.gsub(/\A\/\/(\d+?)\D.*/,'\1')		#cater //393 ,innerHTML or //393/object
+					if ((d!=newAnchor)&&(!suggestedAnchors.include?(newAnchor)))
 						#generate a patch info
 						attrIndex = traffic.index("specialId = '#{newAnchor}'")
 						closinggt = findclosinggt(traffic, attrIndex)
 						openinglt = findopeninglt(traffic, attrIndex)
 						tagInfo = traffic[openinglt..closinggt].gsub(/\sspecialId\s=\s\'.*?\'/,'')
 						vicinityInfo = (traffic[closinggt+1,100].gsub(/\sspecialId\s=\s\'.*?\'/,'').gsub(/[\r\n]/,''))[0..30]
+						suggestedAnchors.push(newAnchor)
 						pfh.write(tagInfo + " => " + vicinityInfo + "\n")
 					end
 				else
@@ -320,7 +322,7 @@ def AdaptAnchor(domain, url)
 			Dir.glob($PolicyRDir+domain+"/"+url+"/policies/*"){|f|
 				content = File.read(f)
 				idToDelete = l.gsub(/\A#?Tag\s(\d+)\s.*/,'\1')
-				modifiedContent = content
+				modifiedContent = content.clone
 				content.each_line{|l2|
 					if (l2.match(/\A\/\/id#{Regexp.quote(idToDelete)}/)!=nil)
 						modifiedContent.slice!(l2)			#l2 already has \n in it.
@@ -328,7 +330,19 @@ def AdaptAnchor(domain, url)
 				}
 				File.open(f,"w"){|fh| fh.write(modifiedContent)}
 			}
-			#FIXME:enter deletion time for all model histories associated with this anchor
+			#enter deletion time for all model histories associated with this anchor
+			Dir.glob($PolicyRDir+domain+"/"+url+"/histories/*"){|f|
+				content = File.read(f)
+				idToDelete = l.gsub(/\A#?Tag\s(\d+)\s.*/,'\1')
+				curTime = Time.new.to_s
+				matchpoints = content.enum_for(:scan,"id#{idToDelete}").map{Regexp.last_match.begin(0)}
+				matchpoints.each{|p|
+					startpoint = content.index("->Time Deleted:",p)			
+					endpoint = content.index("\n",startpoint+2)
+					content = content[0..startpoint-1]+"->Time Deleted:"+curTime+content[endpoint..-1]
+				}
+				File.open(f,"w"){|fh| fh.write(content)}
+			}
 		}
 		linesToAdd.each{|l|
 			if (l.index(" => ")==nil) then next end

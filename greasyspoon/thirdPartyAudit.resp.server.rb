@@ -306,8 +306,10 @@ def convertResponse(response, textPattern, url, filecnt)
 		end
 	}
 =end
+	patchDownContent = File.read($SpecialIdDir+sanitizedhost+"/"+sanitizedurl+"/patchdown.txt")
+	modifiedContent = patchDownContent.clone
 	listToAdd.each_key{|id|
-		index = listToAdd[id][0]		#FIXME: this actually can be 0
+		index = listToAdd[id][0]
 		content = " specialId = \'id#{id}\'"
 		response = response.insert(index, content)
 		listToAdd.each_key{|i|
@@ -316,7 +318,14 @@ def convertResponse(response, textPattern, url, filecnt)
 				listToAdd[i][0]+=content.length
 			end
 		}
+		#We want to remove all entries in patchdown.txt if we have seen this id reappears
+		patchDownContent.each_line{|l|
+			if (l.index("Tag #{id} :")!=nil)
+				modifiedContent.slice!(l)
+			end
+		}
 	}
+	File.open($SpecialIdDir+sanitizedhost+"/"+sanitizedurl+"/patchdown.txt","w"){|f| f.write(modifiedContent)}
 	#p vicinityList
 	#p recordedVicinity	
 =begin

@@ -21,8 +21,8 @@ $TrafficDir = "#{$HomeFolder}/Desktop/DOMAR/traffic/"
 $AnchorErrorDir = "#{$HomeFolder}/Desktop/DOMAR/anchorErrors/"
 $ModelThreshold = 1
 $AnchorThreshold = 2
-$PatchDownThreshold = 3 #100
-$PatchUpThreshold = 5
+$PatchDownThreshold = 100 #100
+$PatchUpThreshold = 3
 
 puts "Content-Type: text/html"
 puts
@@ -60,6 +60,7 @@ fileName = $RecordDir+recordDomain+"/"+recordURL+"/record"+recordId.to_s+".txt"
 fh = File.open(fileName, 'w+')
 fh.write(recordTrace)
 fh.close
+
 
 #Check if there is specialId model
 if (!File.exists?($SpecialIdDir+recordDomain+"/"+recordURL+"/"+recordURL+".txt"))
