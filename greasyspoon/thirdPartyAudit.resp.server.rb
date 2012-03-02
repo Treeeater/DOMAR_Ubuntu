@@ -306,8 +306,14 @@ def convertResponse(response, textPattern, url, filecnt)
 		end
 	}
 =end
-	patchDownContent = File.read($SpecialIdDir+sanitizedhost+"/"+sanitizedurl+"/patchdown.txt")
-	modifiedContent = patchDownContent.clone
+	needToCheckPatchDown = false
+	patchDownContent = 0
+	modifiedContent = 0
+	if (File.exists?($SpecialIdDir+sanitizedhost+"/"+sanitizedurl+"/patchdown.txt"))
+		patchDownContent = File.read($SpecialIdDir+sanitizedhost+"/"+sanitizedurl+"/patchdown.txt")
+		modifiedContent = patchDownContent.clone
+		needToCheckPatchDown = true
+	end
 	listToAdd.each_key{|id|
 		index = listToAdd[id][0]
 		content = " specialId = \'id#{id}\'"
@@ -319,13 +325,15 @@ def convertResponse(response, textPattern, url, filecnt)
 			end
 		}
 		#We want to remove all entries in patchdown.txt if we have seen this id reappears
-		patchDownContent.each_line{|l|
-			if (l.index("Tag #{id} :")!=nil)
-				modifiedContent.slice!(l)
-			end
-		}
+		if (needToCheckPatchDown)
+			patchDownContent.each_line{|l|
+				if (l.index("Tag #{id} :")!=nil)
+					modifiedContent.slice!(l)
+				end
+			}
+		end
 	}
-	File.open($SpecialIdDir+sanitizedhost+"/"+sanitizedurl+"/patchdown.txt","w"){|f| f.write(modifiedContent)}
+	if (needToCheckPatchDown) then File.open($SpecialIdDir+sanitizedhost+"/"+sanitizedurl+"/patchdown.txt","w"){|f| f.write(modifiedContent)} end
 	#p vicinityList
 	#p recordedVicinity	
 =begin
