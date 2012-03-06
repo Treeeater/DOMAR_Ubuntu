@@ -73,20 +73,14 @@ def prepareDirectory(param)
 	end
 end
 
-def extractRecordsFromTrainingData(url, domain, trainingDataIndices)
+def extractRecordsFromTrainingData(domain, urlStructure, trainingDataIndices)
 # This function extracts data from files to an associative array randomly, given the P_inst.
 	accessHashA = Hash.new
 	accessHashR = Hash.new
-	#rFolder = $RecordDir + url + "/" + domain + "/"
-	#files = Dir.glob(rFolder+"*")
-	files = Array.new
-	trainingDataIndices = trainingDataIndices.sort_by{|a| File.mtime($RecordDir + url + "/" + domain + "/record"+a+".txt")}		#sort by modifying time
-	trainingDataIndices.each{|t|
-		files.push($RecordDir + url + "/" + domain + "/record"+t+".txt")
-	}
+	files = trainingDataIndices.sort_by{|a| File.mtime(a)}
 	files.each{|fileName|
 		mTime = File.mtime(fileName)
-		id = fileName.gsub(/.*\/record(\d+)\.txt$/,'\1')
+		id = fileName.gsub(/.*\/(.*)\.txt$/,'\1')
 		f = File.open(fileName, 'r')
 		while (line = f.gets)
 			line=line.chomp
@@ -163,12 +157,12 @@ def extractRecordsFromTrainingData(url, domain, trainingDataIndices)
 	return temp
 end
 
-def exportPolicy(extractedRecords, url, domain, targetDomain=nil)
+def exportPolicy(extractedRecords, domain, urlStructure, targetDomain=nil)
 	#model building part we only record one access entry (the earliest one).
-	pFolderA = $PolicyADir + url + "/" + domain + "/policies/"
-	pFolderR = $PolicyRDir + url + "/" + domain + "/policies/"
-	pFolderHistoryA = $PolicyADir + url + "/" + domain + "/histories/"
-	pFolderHistoryR = $PolicyRDir + url + "/" + domain + "/histories/"
+	pFolderA = $PolicyADir + domain + "/" + urlStructure + "/policies/"
+	pFolderR = $PolicyRDir + domain + "/" + urlStructure + "/policies/"
+	pFolderHistoryA = $PolicyADir + domain + "/" + urlStructure + "/histories/"
+	pFolderHistoryR = $PolicyRDir + domain + "/" + urlStructure + "/histories/"
 	makeDirectory(pFolderA)
 	makeDirectory(pFolderR)
 	makeDirectory(pFolderHistoryA)
@@ -180,7 +174,7 @@ def exportPolicy(extractedRecords, url, domain, targetDomain=nil)
 			fHistory = File.open(pFolderHistoryA+tld+".txt","w")
 			accessArrayA[tld].each_key{|xpath|
 				f.puts(xpath)#+"|:=>"+accessArray[tld][xpath].to_s)
-				fHistory.puts(xpath+"\n->Time Added:"+accessArrayA[tld][xpath][:mtime].to_s+"\n->Traffic ID:"+accessArrayA[tld][xpath][:id]+"\n->Time Deleted:\n->Accessed Entries:"+accessArrayA[tld][xpath][:id]+"\n\n")
+				fHistory.puts(xpath+"\n->Time Added:"+accessArrayA[tld][xpath][:mtime].to_s+"\n->First seen traffic:"+accessArrayA[tld][xpath][:id]+"\n->Time Deleted:\n->Accessed Entries:"+accessArrayA[tld][xpath][:id]+"\n\n")
 			}
 			f.close()
 			fHistory.close()
@@ -191,7 +185,7 @@ def exportPolicy(extractedRecords, url, domain, targetDomain=nil)
 			fHistory = File.open(pFolderHistoryA+targetDomain+".txt","w")
 			accessArrayA[targetDomain].each_key{|xpath|
 				f.puts(xpath)
-				fHistory.puts(xpath+"\n->Time Added:"+accessArrayA[targetDomain][xpath][:mtime].to_s+"\n->Traffic ID:"+accessArrayA[targetDomain][xpath][:id]+"\n->Time Deleted:\n->Accessed Entries:"+accessArrayA[targetDomain][xpath][:id]+"\n\n")
+				fHistory.puts(xpath+"\n->Time Added:"+accessArrayA[targetDomain][xpath][:mtime].to_s+"\n->First seen traffic:"+accessArrayA[targetDomain][xpath][:id]+"\n->Time Deleted:\n->Accessed Entries:"+accessArrayA[targetDomain][xpath][:id]+"\n\n")
 			}
 			f.close()
 			fHistory.close()
@@ -206,7 +200,7 @@ def exportPolicy(extractedRecords, url, domain, targetDomain=nil)
 			accessArrayR[tld].each_key{|xpath|
 				if (xpath =~ /\/\/\d+.*/) then next end			#ignore unanchored accesses.
 				f.puts(xpath)#+"|:=>"+accessArray[tld][xpath].to_s)
-				fHistory.puts(xpath+"\n->Time Added:"+accessArrayR[tld][xpath][:mtime].to_s+"\n->Traffic ID:"+accessArrayR[tld][xpath][:id]+"\n->Time Deleted:\n->Accessed Entries:"+accessArrayR[tld][xpath][:id]+"\n\n")
+				fHistory.puts(xpath+"\n->Time Added:"+accessArrayR[tld][xpath][:mtime].to_s+"\n->First seen traffic:"+accessArrayR[tld][xpath][:id]+"\n->Time Deleted:\n->Accessed Entries:"+accessArrayR[tld][xpath][:id]+"\n\n")
 			}
 			f.close()
 			fHistory.close()
@@ -218,7 +212,7 @@ def exportPolicy(extractedRecords, url, domain, targetDomain=nil)
 			accessArrayR[targetDomain].each_key{|xpath|
 				if (xpath =~ /\/\/\d+.*/) then next end			#ignore unanchored accesses.
 				f.puts(xpath)
-				fHistory.puts(xpath+"\n->Time Added:"+accessArrayR[targetDomain][xpath][:mtime].to_s+"\n->Traffic ID:"+accessArrayR[targetDomain][xpath][:id]+"\n->Time Deleted:\n->Accessed Entries:"+accessArrayR[targetDomain][xpath][:id]+"\n\n")
+				fHistory.puts(xpath+"\n->Time Added:"+accessArrayR[targetDomain][xpath][:mtime].to_s+"\n->First seen traffic:"+accessArrayR[targetDomain][xpath][:id]+"\n->Time Deleted:\n->Accessed Entries:"+accessArrayR[targetDomain][xpath][:id]+"\n\n")
 			}
 			f.close()
 			fHistory.close()
@@ -226,9 +220,9 @@ def exportPolicy(extractedRecords, url, domain, targetDomain=nil)
 	end
 end
 
-def BuildModel(url, domain, targetDomain, trainingDataIndices)
-	extractedRecords = extractRecordsFromTrainingData(url, domain, trainingDataIndices)
-	exportPolicy(extractedRecords, url, domain, targetDomain)
+def BuildModel(domain, urlStructure, targetDomain, trainingDataIndices)
+	extractedRecords = extractRecordsFromTrainingData(domain, urlStructure, trainingDataIndices)
+	exportPolicy(extractedRecords, domain, urlStructure, targetDomain)
 =begin
 	extractedRecords.recordsA.each_key{|tld|
 		tempModel = buildStrictModel(extractedRecords.recordsA[tld], tld) 	#strictest model is actually just extractedRecord

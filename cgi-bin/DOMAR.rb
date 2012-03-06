@@ -23,13 +23,12 @@ $ModelThreshold = 1
 $AnchorThreshold = 2
 $PatchDownThreshold = 100 #100
 $PatchUpThreshold = 3
+$DF = "/home/yuchen/success"		#debug purposes
 
 puts "Content-Type: text/html"
 puts
 puts "<html>"
 puts "<body>"
-
-
 
 #Record this trace.
 cgi = CGI.new
@@ -44,40 +43,39 @@ if (!(cgi.has_key?('url')&&cgi.has_key?('domain')&&cgi.has_key?('trace')&&cgi.ha
 end
 
 recordURL = CGI.unescapeHTML(cgi['url'])
+urlStructure = extractURLStructure(recordURL)
+sanitizedURL = recordURL.gsub(/[^a-zA-Z0-9]/,"")
 recordDomain = CGI.unescapeHTML(cgi['domain'])
 recordTrace = CGI.unescapeHTML(cgi['trace'])
 recordId = CGI.unescapeHTML(cgi['id'])
 if (!File.directory?($RecordDir+recordDomain))
 	Dir.mkdir($RecordDir+recordDomain, 0777)
 end
-if (!File.directory?($RecordDir+recordDomain+"/"+recordURL))
-	Dir.mkdir($RecordDir+recordDomain+"/"+recordURL, 0777)
+if (!File.directory?($RecordDir+recordDomain+"/"+urlStructure))
+	Dir.mkdir($RecordDir+recordDomain+"/"+urlStructure, 0777)
 end
-files = Dir.glob($RecordDir+recordDomain+"/"+recordURL+"/*")
+files = Dir.glob($RecordDir+recordDomain+"/"+urlStructure+"/*")
 times = Array.new
 lookupTable = Hash.new
-fileName = $RecordDir+recordDomain+"/"+recordURL+"/record"+recordId.to_s+".txt"
+fileName = $RecordDir+recordDomain+"/"+urlStructure+"/#{sanitizedURL}?"+recordId.to_s+".txt"
 fh = File.open(fileName, 'w+')
 fh.write(recordTrace)
 fh.close
 
-
 #Check if there is specialId model
-if (!File.exists?($SpecialIdDir+recordDomain+"/"+recordURL+"/"+recordURL+".txt"))
+if (!File.exists?($SpecialIdDir+recordDomain+"/"+urlStructure+"/"+urlStructure+".txt"))
 	#Does not exist, build it.
 	if (files.size >= $AnchorThreshold)
 		trafficInputs = Array.new
-		recordInputs = Array.new
 		files.each{|f|
-			id = f.gsub(/.*?(\d+)\.txt/,'\1')
-			recordInputs.push(f)
-			trafficInputs.push($TrafficDir+recordDomain+"/"+recordURL+"/"+recordURL+id+".txt")
+			recordName = f.gsub(/.*\/(.*)\.txt$/,'\1')
+			trafficInputs.push($TrafficDir+recordDomain+"/"+urlStructure+"/"+recordName+".txt")
 		}
-		outputPolicyFileName = $SpecialIdDir+recordDomain+"/"+recordURL+"/"+recordURL+".txt"
-		extractTextPattern(trafficInputs, recordInputs, outputPolicyFileName)
-		prepareDirectory($TrafficDir+recordDomain+"/"+recordURL+"/.anchorSeedTraffics/")
-		prepareDirectory($RecordDir+recordDomain+"/"+recordURL+"/.anchorSeedRecords/")
-		records = Dir.glob($RecordDir+recordDomain+"/"+recordURL+"/*")
+		outputPolicyFileName = $SpecialIdDir+recordDomain+"/"+urlStructure+"/"+urlStructure+".txt"
+		extractTextPattern(trafficInputs, files, outputPolicyFileName)
+		prepareDirectory($TrafficDir+recordDomain+"/"+urlStructure+"/.anchorSeedTraffics/")
+		prepareDirectory($RecordDir+recordDomain+"/"+urlStructure+"/.anchorSeedRecords/")
+		records = Dir.glob($RecordDir+recordDomain+"/"+urlStructure+"/*")
 		records.each{|r|
 			fName = r.gsub(/.*\/(.+?\.txt)/,'\1')
 			rName = r.gsub(/(.*\/).+?\.txt/,'\1')
@@ -85,7 +83,7 @@ if (!File.exists?($SpecialIdDir+recordDomain+"/"+recordURL+"/"+recordURL+".txt")
 				FileUtils.mv(r,rName+".anchorSeedRecords/"+fName)
 			end
 		}
-		traffics = Dir.glob($TrafficDir+recordDomain+"/"+recordURL+"/*")
+		traffics = Dir.glob($TrafficDir+recordDomain+"/"+urlStructure+"/*")
 		traffics.each{|r|
 			fName = r.gsub(/.*\/(.+?\.txt)/,'\1')
 			rName = r.gsub(/(.*\/).+?\.txt/,'\1')
@@ -97,8 +95,8 @@ if (!File.exists?($SpecialIdDir+recordDomain+"/"+recordURL+"/"+recordURL+".txt")
 else
 #our model is only based on the relative+absolute model, so if there is no anchors learnt, we do not check model.
 	relative = probeXPATH(recordTrace)
-	CheckModel(recordTrace, recordDomain, recordURL, recordId, relative)
-	AdaptAnchor(recordDomain, recordURL)
+	CheckModel(recordTrace, recordDomain, sanitizedURL, urlStructure, recordId, relative)
+	AdaptAnchor(recordDomain, sanitizedURL, urlStructure)
 end
 puts "<h1>!</h1>"
 puts "</body>"

@@ -1173,8 +1173,8 @@ function writePolicy()
 		//Now we ignore the GET parameters
 		url = url.substr(0,url.indexOf("?"));
 	}
-	urlfile = url.replace(/[^a-zA-Z0-9]/g,"");	//\W also does the trick.
-	urlfile = urlfile.substr(0,240);						//restrict the file length
+	//urlfile = url.replace(/[^a-zA-Z0-9]/g,"");	//\W also does the trick.
+	urlfile = url.substr(0,240);						//restrict the file length
 	domain = domain.replace(/[^a-zA-Z0-9]/g,"");
 	domain = domain.substr(0,240);
 	var i;

@@ -51,13 +51,13 @@ def ExtractPolicyFromFile(rootDir, domain, url)
 	return policy
 end
 
-def CheckModel(record, domain, url, id, relative)
-	makeDirectory($PolicyRDir+domain+"/"+url)
-	makeDirectory($PolicyADir+domain+"/"+url)
+def CheckModel(record, domain, url, urlStructure, id, relative)
+	makeDirectory($PolicyRDir+domain+"/"+urlStructure)
+	makeDirectory($PolicyADir+domain+"/"+urlStructure)
 	policyA = Hash.new
-	policyA = ExtractPolicyFromFile($PolicyADir,domain,url)				#if policy file doesn't exist, policyA and policyR would just be empty hashes.
+	policyA = ExtractPolicyFromFile($PolicyADir,domain,urlStructure)				#if policy file doesn't exist, policyA and policyR would just be empty hashes.
 	policyR = Hash.new
-	if relative then policyR = ExtractPolicyFromFile($PolicyRDir,domain,url)
+	if relative then policyR = ExtractPolicyFromFile($PolicyRDir,domain,urlStructure)
 	end
 	accessHashR = Hash.new
 	diffArrayR = Hash.new
@@ -127,7 +127,7 @@ def CheckModel(record, domain, url, id, relative)
 	recordedTLD = Hash.new
 	accessHashA.each_key{|tld|
 		historyContent = ""
-		if (File.exists?($PolicyADir+domain+"/"+url+"/histories/"+tld+".txt")) then historyContent = File.read($PolicyADir+domain+"/"+url+"/histories/"+tld+".txt") end
+		if (File.exists?($PolicyADir+domain+"/"+urlStructure+"/histories/"+tld+".txt")) then historyContent = File.read($PolicyADir+domain+"/"+urlStructure+"/histories/"+tld+".txt") end
 		accessHashA[tld].each{|a|
 			if (!policyA.has_key? tld)
 				#haven't seen any scripts from this domain before, now we do not record a diff file for this, we just record it in model suggestion.
@@ -141,20 +141,20 @@ def CheckModel(record, domain, url, id, relative)
 =end
 				#we also want to record this in a model suggestion file (works for both absolute and relative)
 				if (!recordedTLD.has_key? tld)
-					makeDirectory($PolicyADir+domain+"/"+url+"/list/")
-					File.open($PolicyADir+domain+"/"+url+"/list/"+tld,'a'){|f| f.write(id+"\n")}
+					makeDirectory($PolicyADir+domain+"/"+urlStructure+"/list/")
+					File.open($PolicyADir+domain+"/"+urlStructure+"/list/"+tld,'a'){|f| f.write($RecordDir+domain+"/"+urlStructure+"/"+url+"?"+id+".txt\n")}
 					recordedTLD[tld]=true
 					#we want to check if we can can build a model for this domain
-					list = File.read($PolicyADir+domain+"/"+url+"/list/"+tld)
+					list = File.read($PolicyADir+domain+"/"+urlStructure+"/list/"+tld)
 					lineNo = 0
-					trainingDataIndices = Array.new
+					trainingDataFiles = Array.new
 					list.each_line{|l|
-						trainingDataIndices.push(l.chomp)
+						trainingDataFiles.push(l.chomp)
 						lineNo+=1
 					}
 					if (lineNo>=$ModelThreshold)
 						#we want to build the model for this domain
-						BuildModel(domain, url, tld, trainingDataIndices)		#build model actually builds two models, one for absolute one for relative
+						BuildModel(domain, urlStructure, tld, trainingDataFiles)		#build model actually builds two models, one for absolute one for relative
 						#File.delete($PolicyRDir+domain+"/"+url+"/LIST_"+tld)
 					end
 				end
@@ -168,10 +168,9 @@ def CheckModel(record, domain, url, id, relative)
 					else 
 						diffArrayA[tld].push(a)
 					end
-					File.open($PolicyADir+domain+"/"+url+"/policies/"+tld+".txt","a"){|f| f.write(a+"\n")}		#add simple policy entry
-					historyContent += (a+"\n->Time Added:"+(Time.new.to_s)+"\n->Traffic ID:"+id.to_s+"\n->Time Deleted:\n->Accessed Entries:"+id.to_s+"\n\n")				#add policy history
+					File.open($PolicyADir+domain+"/"+urlStructure+"/policies/"+tld+".txt","a"){|f| f.write(a+"\n")}		#add simple policy entry
+					historyContent += (a+"\n->Time Added:"+(Time.new.to_s)+"\n->First seen traffic:"+url+id.to_s+"\n->Time Deleted:\n->Accessed Entries:"+id.to_s+"\n\n")				#add policy history
 				else
-					#File.open("/home/yuchen/success","a"){|f| f.write(a+"\n")}
 					pointer = historyContent.index(a+"\n")
 					pointer = historyContent.index("\n->Accessed Entries:",pointer)
 					pointer = historyContent.index("\n", pointer+2)-1
@@ -179,12 +178,12 @@ def CheckModel(record, domain, url, id, relative)
 				end
 			end
 		}
-		if (historyContent !="") then File.open($PolicyADir+domain+"/"+url+"/histories/"+tld+".txt","w") {|f| f.write(historyContent)} end
+		if (historyContent !="") then File.open($PolicyADir+domain+"/"+urlStructure+"/histories/"+tld+".txt","w") {|f| f.write(historyContent)} end
 	}
 	if (relative)
 		accessHashR.each_key{|tld|
 			historyContent = ""
-			if (File.exists?($PolicyRDir+domain+"/"+url+"/histories/"+tld+".txt")) then historyContent = File.read($PolicyRDir+domain+"/"+url+"/histories/"+tld+".txt") end
+			if (File.exists?($PolicyRDir+domain+"/"+urlStructure+"/histories/"+tld+".txt")) then historyContent = File.read($PolicyRDir+domain+"/"+urlStructure+"/histories/"+tld+".txt") end
 			accessHashR[tld].each{|a|
 				if (!policyR.has_key? tld)
 					#haven't seen any scripts from this domain before, currently we don't do anything until a model is built (within a few accesses)
@@ -208,8 +207,8 @@ def CheckModel(record, domain, url, id, relative)
 						end
 						if (a.match(/\A\/\/\d+.*/)==nil)
 							#only add anchored entries to the model, if it's not an anchor yet, we just record it in diff file, not in the model.
-							File.open($PolicyRDir+domain+"/"+url+"/policies/"+tld+".txt","a"){|f| f.write(a+"\n")}		#add simple policy entry
-							historyContent += (a+"\n->Time Added:"+(Time.new.to_s)+"\n->Traffic ID:"+id.to_s+"\n->Time Deleted:\n->Accessed Entries:"+id.to_s+"\n\n")		#add policy history
+							File.open($PolicyRDir+domain+"/"+urlStructure+"/policies/"+tld+".txt","a"){|f| f.write(a+"\n")}		#add simple policy entry
+							historyContent += (a+"\n->Time Added:"+(Time.new.to_s)+"\n->First seen traffic:"+url+id.to_s+"\n->Time Deleted:\n->Accessed Entries:"+id.to_s+"\n\n")		#add policy history
 						end
 					else
 						pointer = historyContent.index(a+"\n")
@@ -219,15 +218,15 @@ def CheckModel(record, domain, url, id, relative)
 					end
 				end
 			}
-			if (historyContent !="") then File.open($PolicyRDir+domain+"/"+url+"/histories/"+tld+".txt","w") {|f| f.write(historyContent)} end
+			if (historyContent !="") then File.open($PolicyRDir+domain+"/"+urlStructure+"/histories/"+tld+".txt","w") {|f| f.write(historyContent)} end
 		}
 	end
 	if (!diffArrayA.empty?)
-		makeDirectory($DiffADir+domain+"/"+url+"/")
-		diffAFileHandle = File.open($DiffADir+domain+"/"+url+"/diff"+id.to_s+".txt","w")
+		makeDirectory($DiffADir+domain+"/"+urlStructure+"/")
+		diffAFileHandle = File.open($DiffADir+domain+"/"+urlStructure+"/#{url}?"+id.to_s+".txt","w")
 		diffArrayA.each_key{|tld|
-			makeDirectory($DiffADir+domain+"/"+url+"/"+tld+"/")
-			diffATLDHandle = File.open($DiffADir+domain+"/"+url+"/"+tld+"/diff"+id.to_s+".txt","w")
+			makeDirectory($DiffADir+domain+"/"+urlStructure+"/"+tld+"/")
+			diffATLDHandle = File.open($DiffADir+domain+"/"+urlStructure+"/"+tld+"/#{url}?"+id.to_s+".txt","w")
 			diffAFileHandle.write(tld+"\n")
 			diffArrayA[tld].each{|d|
 				diffAFileHandle.write(d+"\n")
@@ -240,14 +239,14 @@ def CheckModel(record, domain, url, id, relative)
 	end
 	suggestedAnchors = Array.new
 	if ((relative)&&(!diffArrayR.empty?))
-		makeDirectory($DiffRDir+domain+"/"+url+"/")
-		diffRFileHandle = File.open($DiffRDir+domain+"/"+url+"/diff"+id.to_s+".txt","w")
-		pfh = File.open($SpecialIdDir+domain+"/"+url+"/patchup.txt","a")
-		traffic = File.read($TrafficDir+domain+"/"+url+"/"+url+id.to_s+".txt")
+		makeDirectory($DiffRDir+domain+"/"+urlStructure+"/")
+		diffRFileHandle = File.open($DiffRDir+domain+"/"+urlStructure+"/#{url}?"+id.to_s+".txt","w")
+		pfh = File.open($SpecialIdDir+domain+"/"+urlStructure+"/patchup.txt","a")
+		traffic = File.read($TrafficDir+domain+"/"+urlStructure+"/"+url+"?"+id.to_s+".txt")
 		diffArrayR.each_key{|tld|
 			diffRFileHandle.write(tld+"\n")
-			makeDirectory($DiffRDir+domain+"/"+url+"/"+tld+"/")
-			diffRTLDHandle = File.open($DiffRDir+domain+"/"+url+"/"+tld+"/diff"+id.to_s+".txt","w")
+			makeDirectory($DiffRDir+domain+"/"+urlStructure+"/"+tld+"/")
+			diffRTLDHandle = File.open($DiffRDir+domain+"/"+urlStructure+"/"+tld+"/#{url}?"+id.to_s+".txt","w")
 			diffArrayR[tld].each{|d|
 				if (d.match(/\A\/\/id\d+.*/)!=nil)
 					#if the violation starts with 'id', we know it's already an anchor. we simply record them.
@@ -267,7 +266,7 @@ def CheckModel(record, domain, url, id, relative)
 						tagInfo = traffic[openinglt..closinggt].gsub(/\sspecialId\s=\s\'.*?\'/,'')
 						vicinityInfo = (traffic[closinggt+1,100].gsub(/\sspecialId\s=\s\'.*?\'/,'').gsub(/[\r\n]/,''))[0..30]
 						suggestedAnchors.push(newAnchor)
-						pfh.write(tagInfo + " => " + vicinityInfo + "\n")
+						pfh.write(tagInfo + " => " + vicinityInfo + " =|> " + url + "\n")
 					end
 				else
 					#it's gotta be a non-DOM node related access, we simply record them.
@@ -283,9 +282,12 @@ def CheckModel(record, domain, url, id, relative)
 	end
 end
 
-def AdaptAnchor(domain, url)
-	if ((!File.exists?($SpecialIdDir+domain+"/"+url+"/patchup.txt"))&&(!File.exists?($SpecialIdDir+domain+"/"+url+"/patchdown.txt"))) then return end
-	patchdownFile = File.read($SpecialIdDir+domain+"/"+url+"/patchdown.txt")
+def AdaptAnchor(domain, url, urlStructure)
+	if ((!File.exists?($SpecialIdDir+domain+"/"+urlStructure+"/patchup.txt"))&&(!File.exists?($SpecialIdDir+domain+"/"+urlStructure+"/patchdown.txt"))) then return end
+	patchdownFile = ""	
+	if (File.exists?($SpecialIdDir+domain+"/"+urlStructure+"/patchdown.txt"))
+		patchdownFile = File.read($SpecialIdDir+domain+"/"+urlStructure+"/patchdown.txt")
+	end
 	patchlines = Hash.new			#key: googlesyndication3
 	linesToDelete = Array.new
 	linesToAdd = Array.new
@@ -296,17 +298,33 @@ def AdaptAnchor(domain, url)
 	patchlines.each_key{|l|
 		if (patchlines[l]>$PatchDownThreshold) then linesToDelete.push(l) end
 	}
-	patchupFile = File.read($SpecialIdDir+domain+"/"+url+"/patchup.txt")
+	#File.open("/home/yuchen/success","w"){|f| f.write("here")}
+	patchupFile = ""
+	if (File.exists?($SpecialIdDir+domain+"/"+urlStructure+"/patchup.txt"))
+		patchupFile = File.read($SpecialIdDir+domain+"/"+urlStructure+"/patchup.txt")
+	end
 	patchlines = Hash.new
-	patchupFile.each{|l|
+	patchlineURLs = Hash.new
+	patchupFile.each_line{|l|
+		patchlineURL = l[l.index(" =|> ")+5..-1]
+		l = l[0..l.index(" =|> ")-1]
 		patchlines[l] = (patchlines[l]==nil) ? 1 : patchlines[l]+1
+		if (patchlineURLs[l]==nil) then patchlineURLs[l] = Array.new end
+		patchlineURLs[l].push(patchlineURL)
+	}
+	#eliminate those whose patchlineURLs only has 1 entry.
+	patchlineURLs.each_key{|l|
+		patchlineURLs[l].uniq!
+		if (patchlineURLs[l].length == 1)
+			patchlines.delete(l)
+		end
 	}
 	patchlines.each_key{|l|
 		if (l.index(" => ")==nil) then next end
 		if (patchlines[l]>$PatchUpThreshold) then linesToAdd.push(l) end
 	}
 	if ((!linesToDelete.empty?)||(!linesToAdd.empty?))
-		original = File.read($SpecialIdDir+domain+"/"+url+"/"+url+".txt")
+		original = File.read($SpecialIdDir+domain+"/"+urlStructure+"/"+urlStructure+".txt")
 		id = 0
 		original.each_line{|l|
 			cur_id = l.gsub(/\A#?Tag\s(\d+)\s.*/,'\1')
@@ -319,7 +337,7 @@ def AdaptAnchor(domain, url)
 			original = original[0..deleteStartPointer-1]+"#"+original[deleteStartPointer..deleteEndPointer]+"#"+original[deleteEndPointer+1..original.length]		#Currently it just adds hash to beginning of line.
 			patchdownFile.gsub!(l,'')
 			#delete all model entries associated with this anchor.
-			Dir.glob($PolicyRDir+domain+"/"+url+"/policies/*"){|f|
+			Dir.glob($PolicyRDir+domain+"/"+urlStructure+"/policies/*"){|f|
 				content = File.read(f)
 				idToDelete = l.gsub(/\A#?Tag\s(\d+)\s.*/,'\1')
 				modifiedContent = content.clone
@@ -331,7 +349,7 @@ def AdaptAnchor(domain, url)
 				File.open(f,"w"){|fh| fh.write(modifiedContent)}
 			}
 			#enter deletion time for all model histories associated with this anchor
-			Dir.glob($PolicyRDir+domain+"/"+url+"/histories/*"){|f|
+			Dir.glob($PolicyRDir+domain+"/"+urlStructure+"/histories/*"){|f|
 				content = File.read(f)
 				idToDelete = l.gsub(/\A#?Tag\s(\d+)\s.*/,'\1')
 				curTime = Time.new.to_s
@@ -352,9 +370,13 @@ def AdaptAnchor(domain, url)
 			original = original + "Tag #{id.to_s} := " + tagContent + "\n&" + vicinityInfo.chomp + "\n"
 			patchupFile.gsub!(l,'')
 		}
-		File.open($SpecialIdDir+domain+"/"+url+"/"+url+".txt","w"){|f| f.write(original)}		#change the anchors de facto
+		patchupFileMo = ""
+		patchupFile.each_line{|l|
+			if (!(l =~ /^\s/)) then patchupFileMo = patchupFileMo + l end
+		}
+		File.open($SpecialIdDir+domain+"/"+urlStructure+"/"+urlStructure+".txt","w"){|f| f.write(original)}		#change the anchors de facto
 		#we have changed anchors, we need to remove patch recommendations as well.
-		File.open($SpecialIdDir+domain+"/"+url+"/patchdown.txt","w"){|f| f.write(patchdownFile)}		#change the patchdown file
-		File.open($SpecialIdDir+domain+"/"+url+"/patchup.txt","w"){|f| f.write(patchupFile)}		#change the patchup file
+		File.open($SpecialIdDir+domain+"/"+urlStructure+"/patchdown.txt","w"){|f| f.write(patchdownFile)}		#change the patchdown file
+		File.open($SpecialIdDir+domain+"/"+urlStructure+"/patchup.txt","w"){|f| f.write(patchupFileMo)}		#change the patchup file
 	end
 end

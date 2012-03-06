@@ -7,6 +7,49 @@ def getTLD(url)
 	return tld
 end
 
+def extractURLStructure(url)
+	#for example, let's say the url at here is http://www.nytimes.com/2012/01/03/sdfi-wer-qasdf-df.html
+	protocol = url.gsub(/(.*?):\/\/.*/,'\1')	#get the protocol, normally it would be http
+	url = url[protocol.length+3..-1]		#skip the ://, url becomes www.nytimes.com/2012/01/03/sdfi-wer-qasdf-df.html
+	domainName = url.gsub(/(.*?)\/.*/,'\1')
+	url = url[domainName.length+1..-1]		#skip the second /, url becomes 2012/01/03/sdfi-wer-qasdf-df.html
+	subPathArray = url.split('/')
+	subPathArrayType = Array.new
+	subPathArray.each{|path|
+		isEmpty = (path=="")
+		if (isEmpty)
+			next
+		end
+		isIndex = ((path =~ /\Aindex\./)!=nil)
+		if (isIndex)
+			subPathArrayType.push("id")
+			next
+		end
+		isPureWord = ((path =~ /[^a-zA-Z]/)==nil)
+		if (isPureWord)
+			subPathArrayType.push("pw")
+			next
+		end
+		isPureNumber = ((path =~ /\D/)==nil)
+		if (isPureNumber)
+			subPathArrayType.push("pn")
+			next
+		end
+		isNonWord = ((path =~ /[a-zA-Z]/)==nil)
+		if (isNonWord)
+			subPathArrayType.push("nw")
+			next
+		end
+		isNonNumber = ((path =~ /\d/)==nil)
+		if (isNonNumber)
+			subPathArrayType.push("nn")
+			next
+		end
+		subPathArrayType.push("dk")		#don't know
+	}
+	return protocol + "_" + domainName + "_" + subPathArrayType.join("_")
+end
+
 def identifyId(traffic, record)
 	#takes a traffic string and a record string, return an associative array containing domains as keys and an array of 'root' nodes associated with them.
 	result = Hash.new
@@ -119,7 +162,7 @@ def findopeninglt(response,pointer)
     return pointer
 end
 
-def learnTextPattern(traffic, specialIds, textPattern)
+def learnTextPattern(traffic, specialIds, textPattern,id)
 	specialIds.each_key{|k|
 		if (textPattern[k]==nil)
 			textPattern[k]=Array.new
@@ -130,9 +173,12 @@ def learnTextPattern(traffic, specialIds, textPattern)
 			openinglt = findopeninglt(traffic, attrIndex)
 			tagInfo = traffic[openinglt..closinggt].gsub(/\sspecialId\s=\s\'.*?\'/,'')
 			vicinityInfo = (traffic[closinggt+1,100].gsub(/\sspecialId\s=\s\'.*?\'/,'').gsub(/[\r\n]/,''))[0..30]
-			if (!$checked.include?(tagInfo + vicinityInfo))
-				textPattern[k].push( [ tagInfo , vicinityInfo ] )
-				$checked.push(tagInfo+vicinityInfo)
+			if (!$checked.has_key?(tagInfo + vicinityInfo))
+				$checked[tagInfo+vicinityInfo]=id
+			else
+				if ($checked[tagInfo+vicinityInfo] != id)&&(!textPattern[k].include?([tagInfo, vicinityInfo]))
+					textPattern[k].push([tagInfo, vicinityInfo])
+				end
 			end
 		}
 	}
@@ -173,7 +219,7 @@ def extractTextPattern(trafficFile,recordFile,outputFileName)
 		traffic = File.read(trafficFile[i])
 		record = File.read(recordFile[i])
 		result = identifyId(traffic,record)
-		textPattern = learnTextPattern(traffic,result,textPattern)
+		textPattern = learnTextPattern(traffic,result,textPattern,i)
 	}
 	prepareDirectory(outputFileName[0..outputFileName.rindex('/')])
 	#p result
@@ -193,7 +239,7 @@ def extractTextPattern(trafficFile,recordFile,outputFileName)
 		#fh.write("\n-----\n")
 	}
 end
-$checked = Array.new
+$checked = Hash.new
 =begin
 outputFileName = "httpwwwnytimescom.txt"
 trafficInputs = Array.new

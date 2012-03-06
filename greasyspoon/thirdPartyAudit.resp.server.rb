@@ -54,11 +54,55 @@ $TrafficDir = "#{$HomeFolder}/Desktop/DOMAR/traffic/"
 $AnchorErrorDir = "#{$HomeFolder}/Desktop/DOMAR/anchorErrors/"
 $ModelThreshold = 100
 $AnchorThreshold = 50
+$TrainNewAnchors = false
 
 def getTLD(url)
 	domain = url.gsub(/.*?\/\/(.*?)\/.*/,'\1')
 	tld = domain.gsub(/.*\.(.*\..*)/,'\1')
 	return tld
+end
+
+def extractURLStructure(url)
+	#for example, let's say the url at here is http://www.nytimes.com/2012/01/03/sdfi-wer-qasdf-df.html
+	protocol = url.gsub(/(.*?):\/\/.*/,'\1')	#get the protocol, normally it would be http
+	url = url[protocol.length+3..-1]		#skip the ://, url becomes www.nytimes.com/2012/01/03/sdfi-wer-qasdf-df.html
+	domainName = url.gsub(/(.*?)\/.*/,'\1')
+	url = url[domainName.length+1..-1]		#skip the second /, url becomes 2012/01/03/sdfi-wer-qasdf-df.html
+	subPathArray = url.split('/')
+	subPathArrayType = Array.new
+	subPathArray.each{|path|
+		isEmpty = (path=="")
+		if (isEmpty)
+			next
+		end
+		isIndex = ((path =~ /\Aindex\./)!=nil)
+		if (isIndex)
+			subPathArrayType.push("id")
+			next
+		end
+		isPureWord = ((path =~ /[^a-zA-Z]/)==nil)
+		if (isPureWord)
+			subPathArrayType.push("pw")
+			next
+		end
+		isPureNumber = ((path =~ /\D/)==nil)
+		if (isPureNumber)
+			subPathArrayType.push("pn")
+			next
+		end
+		isNonWord = ((path =~ /[a-zA-Z]/)==nil)
+		if (isNonWord)
+			subPathArrayType.push("nw")
+			next
+		end
+		isNonNumber = ((path =~ /\d/)==nil)
+		if (isNonNumber)
+			subPathArrayType.push("nn")
+			next
+		end
+		subPathArrayType.push("dk")		#don't know
+	}
+	return protocol + "_" + domainName + "_" + subPathArrayType.join("_")
 end
 
 def makeDirectory(param)
@@ -81,7 +125,7 @@ def makeDirectory(param)
 	end
 end
 
-def injectFFReplace(response,url,domain,filecnt)
+def injectFFReplace(response,domain,filecnt)
 =begin
 	if (!File.exists? $PreferenceList)
 		p "no preference file."
@@ -177,7 +221,8 @@ def convertResponse(response, textPattern, url, filecnt)
 	error = false
 	errormsg = ""
 	currentDomain = ""
-	sanitizedurl = url.gsub(/[^a-zA-Z0-9]/,"")
+	#sanitizedurl = url.gsub(/[^a-zA-Z0-9]/,"")
+	urlStructure = extractURLStructure(url)
     	sanitizedhost = getTLD(url)
 	sanitizedhost = sanitizedhost.gsub(/[^a-zA-Z0-9]/,"")
 	textPattern.each_line{|l|
@@ -228,7 +273,7 @@ def convertResponse(response, textPattern, url, filecnt)
 				i+=1
 			end
 			if (matches==false)
-				File.open($SpecialIdDir+sanitizedhost+"/"+sanitizedurl+"/patchdown.txt","a"){|f| f.write(l+"\n")}
+				File.open($SpecialIdDir+sanitizedhost+"/"+urlStructure+"/patchdown.txt","a"){|f| f.write(l+"\n")}
 				error = true
 				errormsg += "failed to find a match for "+toMatcht+"\n"
 			end
@@ -255,7 +300,7 @@ def convertResponse(response, textPattern, url, filecnt)
 				listToAdd[id]=candidates.clone		#candidates only have one element - the correct one.
 			elsif (found == 0)
 				listToAdd.delete(id)
-				File.open($SpecialIdDir+sanitizedhost+"/"+sanitizedurl+"/patchdown.txt","a"){|f| f.write(processedNodes[id]+"\n")}
+				File.open($SpecialIdDir+sanitizedhost+"/"+urlStructure+"/patchdown.txt","a"){|f| f.write(processedNodes[id]+"\n")}
 =begin
 				candidates = listToAdd[id].clone		#temporarily store the previously found elements (all of them are incorrect) in a new array.
 				listToAdd.delete(id)				#remove the original item
@@ -275,7 +320,7 @@ def convertResponse(response, textPattern, url, filecnt)
 				p errormsg
 			elsif (found > 1)
 				listToAdd.delete(id)				#remove the original item
-				File.open($SpecialIdDir+sanitizedhost+"/"+sanitizedurl+"/patchdown.txt","a"){|f| f.write(processedNodes[id]+"\n")}
+				File.open($SpecialIdDir+sanitizedhost+"/"+urlStructure+"/patchdown.txt","a"){|f| f.write(processedNodes[id]+"\n")}
 =begin
 				#add all original items differently, FIXME:we should include more vicinity info.
 				#store vicinity information in a cache folder
@@ -309,8 +354,8 @@ def convertResponse(response, textPattern, url, filecnt)
 	needToCheckPatchDown = false
 	patchDownContent = 0
 	modifiedContent = 0
-	if (File.exists?($SpecialIdDir+sanitizedhost+"/"+sanitizedurl+"/patchdown.txt"))
-		patchDownContent = File.read($SpecialIdDir+sanitizedhost+"/"+sanitizedurl+"/patchdown.txt")
+	if (File.exists?($SpecialIdDir+sanitizedhost+"/"+urlStructure+"/patchdown.txt"))
+		patchDownContent = File.read($SpecialIdDir+sanitizedhost+"/"+urlStructure+"/patchdown.txt")
 		modifiedContent = patchDownContent.clone
 		needToCheckPatchDown = true
 	end
@@ -333,7 +378,7 @@ def convertResponse(response, textPattern, url, filecnt)
 			}
 		end
 	}
-	if (needToCheckPatchDown) then File.open($SpecialIdDir+sanitizedhost+"/"+sanitizedurl+"/patchdown.txt","w"){|f| f.write(modifiedContent)} end
+	if (needToCheckPatchDown) then File.open($SpecialIdDir+sanitizedhost+"/"+urlStructure+"/patchdown.txt","w"){|f| f.write(modifiedContent)} end
 	#p vicinityList
 	#p recordedVicinity	
 =begin
@@ -409,6 +454,7 @@ def process(response, url, host)
     if (url.index('?')!=nil) then url = url[0..url.index('?')-1] end
     puts "Begin to parse "+url
     sanitizedurl = url.gsub(/[^a-zA-Z0-9]/,"")
+    urlStructure = extractURLStructure(url)
     sanitizedhost = getTLD(url)
     filecnt = 1
     mediate = true
@@ -429,8 +475,8 @@ def process(response, url, host)
 	    if (!File.directory? $TrafficDir+sanitizedhost)
 		Dir.mkdir($TrafficDir+sanitizedhost,0777)
 	    end
-	    if (!File.directory? $TrafficDir+sanitizedhost+"/"+sanitizedurl)
-		Dir.mkdir($TrafficDir+sanitizedhost+"/"+sanitizedurl,0777)
+	    if (!File.directory? $TrafficDir+sanitizedhost+"/"+urlStructure)
+		Dir.mkdir($TrafficDir+sanitizedhost+"/"+urlStructure,0777)
 	    end
 	    if (!File.directory? $RecordDir)
 		Dir.mkdir($RecordDir,0777)
@@ -438,23 +484,25 @@ def process(response, url, host)
 	    if (!File.directory? $RecordDir+sanitizedhost)
 		Dir.mkdir($RecordDir+sanitizedhost,0777)
 	    end
-	    if (!File.directory? $RecordDir+sanitizedhost+"/"+sanitizedurl)
-		Dir.mkdir($RecordDir+sanitizedhost+"/"+sanitizedurl,0777)
+	    if (!File.directory? $RecordDir+sanitizedhost+"/"+urlStructure)
+		Dir.mkdir($RecordDir+sanitizedhost+"/"+urlStructure,0777)
 	    end
-	    while (File.exists? $TrafficDir+"#{sanitizedhost}/#{sanitizedurl}/#{sanitizedurl}"+filecnt.to_s+".txt")
+	    while (File.exists? $TrafficDir+"#{sanitizedhost}/#{urlStructure}/#{sanitizedurl}?"+filecnt.to_s+".txt")
 	    	filecnt+=1
 	    end
 	    #p response[0..10]
 	
-	    textPattern = collectTextPattern(sanitizedurl, sanitizedhost)
+	    textPattern = collectTextPattern(urlStructure, sanitizedhost)
 	    if (textPattern!=nil)
 		#found policy file, we can use it directly
 		response = convertResponse(response,textPattern,url,filecnt)
+		if ($TrainNewAnchors) then response = universalTraining(response) end
+	    else
+	    	response = universalTraining(response)
 	    end
-	    response = universalTraining(response)
-	    File.open($TrafficDir+"#{sanitizedhost}/#{sanitizedurl}/#{sanitizedurl}"+filecnt.to_s+".txt", 'w+') {|f| f.write(response) }
+	    File.open($TrafficDir+"#{sanitizedhost}/#{urlStructure}/#{sanitizedurl}?"+filecnt.to_s+".txt", 'w+') {|f| f.write(response) }
 	    if $user_id!=nil then File.open($TrafficDir+"user-traffic.txt","a+") {|f| f.write("#{$user_id} => #{sanitizedurl}#{filecnt}.txt\n")} end
-	    response = injectFFReplace(response,sanitizedurl,getTLD(url),filecnt)
+	    response = injectFFReplace(response,getTLD(url),filecnt)
     end
     puts "finish parsing "+url
     return response
