@@ -169,12 +169,12 @@ def CheckModel(record, domain, url, urlStructure, id, relative)
 						diffArrayA[tld].push(a)
 					end
 					File.open($PolicyADir+domain+"/"+urlStructure+"/policies/"+tld+".txt","a"){|f| f.write(a+"\n")}		#add simple policy entry
-					historyContent += (a+"\n->Time Added:"+(Time.new.to_s)+"\n->First seen traffic:"+url+id.to_s+"\n->Time Deleted:\n->Accessed Entries:"+id.to_s+"\n\n")				#add policy history
+					historyContent += (a+"\n->Time Added:"+(Time.new.to_s)+"\n->First seen traffic:"+url+id.to_s+"\n->Time Deleted:\n->Accessed Entries:"+url+id.to_s+"\n\n")				#add policy history
 				else
 					pointer = historyContent.index(a+"\n")
 					pointer = historyContent.index("\n->Accessed Entries:",pointer)
 					pointer = historyContent.index("\n", pointer+2)-1
-					historyContent = historyContent[0..pointer]+" "+id.to_s+historyContent[pointer+1..historyContent.length]
+					historyContent = historyContent[0..pointer]+" "+url+id.to_s+historyContent[pointer+1..historyContent.length]
 				end
 			end
 		}
@@ -208,13 +208,13 @@ def CheckModel(record, domain, url, urlStructure, id, relative)
 						if (a.match(/\A\/\/\d+.*/)==nil)
 							#only add anchored entries to the model, if it's not an anchor yet, we just record it in diff file, not in the model.
 							File.open($PolicyRDir+domain+"/"+urlStructure+"/policies/"+tld+".txt","a"){|f| f.write(a+"\n")}		#add simple policy entry
-							historyContent += (a+"\n->Time Added:"+(Time.new.to_s)+"\n->First seen traffic:"+url+id.to_s+"\n->Time Deleted:\n->Accessed Entries:"+id.to_s+"\n\n")		#add policy history
+							historyContent += (a+"\n->Time Added:"+(Time.new.to_s)+"\n->First seen traffic:"+url+id.to_s+"\n->Time Deleted:\n->Accessed Entries:"+url+id.to_s+"\n\n")		#add policy history
 						end
 					else
 						pointer = historyContent.index(a+"\n")
 						pointer = historyContent.index("\n->Accessed Entries:",pointer)
 						pointer = historyContent.index("\n", pointer+2)-1
-						historyContent = historyContent[0..pointer]+" "+id.to_s+historyContent[pointer+1..historyContent.length]
+						historyContent = historyContent[0..pointer]+" "+url+id.to_s+historyContent[pointer+1..historyContent.length]
 					end
 				end
 			}

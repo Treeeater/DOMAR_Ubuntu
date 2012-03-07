@@ -25,10 +25,7 @@ document.images/anchors/links/applets/forms
 --node special properties--
 node.innerHTML
 */
-function ___record(){
-var training = false;
-if (document.head.parentNode.getAttribute('specialId')!=null) training = true;		//FIXME: this is ad hoc right now.
-var enableV = training;						//used to remember the vicinity of the accessed nodes for automatic policy relearning.
+function ___record(){					
 var seqID = 0;
 var recordedDOMActions = new Array();		//used to remember what we have already recorded to avoid duplicants.
 if (/Firefox[\/\s](\d+\.\d+)/.test(navigator.userAgent))
@@ -52,61 +49,8 @@ var oldNextSibling = Element.prototype.__lookupGetter__('nextSibling');
 var oldPreviousSibling = Element.prototype.__lookupGetter__('previousSibling');
 var oldChildNodes = Element.prototype.__lookupGetter__('childNodes');
 var oldGetAttribute = Element.prototype.getAttribute;
-
-findPos = function(obj) 
-{
-	var curleft = curtop = 0;
-	var width = height = 0;
-	if (obj.offsetWidth) width = obj.offsetWidth;
-	if (obj.offsetHeight) height = obj.offsetHeight;
-	if (obj.offsetParent) {	
-		do {
-			curleft += obj.offsetLeft;
-			curtop += obj.offsetTop;	
-		} while (obj = obj.offsetParent);
-	}
-	return [curleft,curtop,width,height];
-};
-var getV = function(elt)
-{
-	return getTrueXPath(elt);
-
-/*
-	result = "";
-	eltC = oldChildNodes.apply(elt);
-	i = 0;
-	if (eltC&&(eltC.length>0))
-	{
-		while (i < eltC.length)
-		{
-			if (eltC[i].nodeType == 1) result += (">" + eltC[i].tagName);
-			else if (eltC[i].nodeType == 3) result += (">"+"TEXT");
-			else if (eltC[i].nodeType == 2) result += (">"+"ATTR");
-			i++;
-		}
-	}
-	
-	eltN = oldNextSibling.apply(elt);
-	if (eltN)
-	{
-		if (eltN.nodeType == 1) result += ("<>"+eltN.tagName);
-		else if (eltN.nodeType == 3) result += ("<>"+"TEXT");
-		else if (eltN.nodeType == 2) result += ("<>"+"ATTR");
-	}
-	
-	eltP = oldPreviousSibling.apply(elt);
-	if (eltP)
-	{
-		if (eltP.nodeType == 1) result += ("<<>"+eltP.tagName);
-		else if (eltP.nodeType == 3) result += ("<<>"+"TEXT");
-		else if (eltP.nodeType == 2) result += ("<<>"+"ATTR");
-	}
-	
-	return result;
-	*/
-}
  
-var getTrueXPath = function(elt)
+var getXPathA = function(elt)
 {
      var path = "";
      for (; elt && (elt.nodeType == 1||elt.nodeType == 3||elt.nodeType == 2); elt = oldParentNode.apply(elt))
@@ -118,15 +62,13 @@ var getTrueXPath = function(elt)
 		if (idx > 1) xname += "[" + idx + "]";
 		path = "/" + xname + path;
      }
-	 //if ((path=="")&&(elt!=null)) alert(elt);		//for debug purposes.
      if (path.substr(0,5)!="/HTML") return "";		//right now, if this node is not originated from HTMLDocument (e.g., some script calls createElement which does not contain any private information, we do not record this access.
 	 return path;
 };
 
-var getXPath = function(elt)
+var getXPathR = function(elt)
 {
-	if (!training) return getTrueXPath(elt);
-	var path = "";
+    var path = "";
     for (; elt && (elt.nodeType == 1||elt.nodeType == 3||elt.nodeType == 2); elt = oldParentNode.apply(elt))
     {
 		if ((elt.nodeType ==1)&&(oldGetAttribute.apply(elt,['specialId'])!=null))
@@ -141,9 +83,8 @@ var getXPath = function(elt)
 		if (idx > 1) xname += "[" + idx + "]";
 		path = "/" + xname + path;
     }
-	//if ((path=="")&&(elt!=null)) alert(elt);		//for debug purposes.
-    if (!((path.substr(0,5)=="/HTML")||(path.substr(0,2)=="//"))) return "";		//right now, if this node is not originated from HTMLDocument (e.g., some script calls createElement which does not contain any private information, we do not record this access.
-	return path;
+    //if (!(path.substr(0,2)=="//")) return "";		//right now, if this node is not originated from //, we do not record this access. Without this, getXPathR will return the same result as getXPathA if it does not hit an anchor.
+    return path;
 }
 
 var getElementIdx = function(elt)
@@ -172,68 +113,8 @@ var getElementIdx = function(elt)
 	}
     return count;
 };
-/*
-var getXPathCollection = function (collection) {
-	if (collection.length>10) return "More than 10 elements!";		//Sometimes the trace gets too big. We try to avoid that.
-	path = "";
-	var i = 0;
-	for (; i < collection.length; i++)
-	{
-		var thispath = getXPath(collection[i]);
-		if (thispath!="")
-		{
-			path = path + thispath +"; ";
-		}
-	}
-	return path;
-}
-*/
-//utilities:
-/*
-	If we only care about the top of the stack, which is not necessarily the case. Third-party scripts maybe called in the middle, e.g. Analytics provide APIs for host to call.  If this happens, we want to have a way to at least show that which third-party scripts touched which element.
-		
-var getCallerInfo = function() {
-    try {
-        this.undef();
-        return null;
-    } catch (e) {
-		var lastline = e.stack;
-		var ignored = "";
-		if (lastline.length>3000) lastline = lastline.substr(lastline.length-3000,lastline.length);		//Assumes the total call stack is less than 3000 characters. avoid the situation when arguments becomes huge and regex operation virtually stalls the browser.  This could very well happen when innerHTML is changed. For example, flickr.com freezes our extension without this LOC.
-		if (lastline!=e.stack) ignored = "; stack trace > 3000 chars.";					//notify the record that this message is not complete.
-        lastline = lastline.replace(/[\s\S]*\n(.*)\n$/m,"$1");		//getting rid of other lines
-		//var penultimateline = e.stack.replace(/[\s\S]*\n(.*)\n(.*)\n$/m,"$1");
-		lastline = lastline.replace(/[\s\S]*@(.*)$/,"$1");				//get rid of the whole arguments
-		//penultimateline = penultimateline.replace(/[\s\S]*@(.*)$/,"$1");
-		if (lastline.match(/\?(.*)/,""))
-		{
-			lineNo = lastline.replace(/.*\:(.*)$/,"$1");				//extract the line number
-			lastline = lastline.replace(/\?(.*)/,"");					//get rid of all the GET parameters
-			lastline = lastline + ":" + lineNo;
-		}
-		
-		//The following two cases are to indicate two corner cases which we do not cover for now. Flash-DOM access is very prevalent but it would be a disaster to focus on this.  Old setAttribute way of setting eventhandlers is deprecated and less used. For now we ignore these cases.
-		//if (lastline.match(/:1$/)){
-			//if (!lastline.match(/js:1$/))
-			//{
-				//alert(e.stack);
-				//This probably is an event handler registered using old API (setAttribute onclick). FF cannot return correctly who registered it.
-				//However according to MDN this registering method is deprecated.
-				//Also worth noticing is that not all non js's 1st line access indicates an eventhandler.
-			//}
-		//}
-		//if (lastline.match(/:0$/)) {
-			//When actionscript in Flash/Flex tries to call related APIs, e.stack will return URI:0 as top stack, which is incorrect. However we ignore this bug because we are not specifically looking at Actionscript accesses.
-			//We ignore this case for now.
-			//alert(e.stack);
-		//}
-		
-		return lastline+ignored;
-    }
-};
-*/
 //if getCallerInfo returns null, all recording functions will not record current access.
-var getCallerInfo = function(caller) {
+var getCallerInfo = function() {
     try {
         this.undef();
         return null;
@@ -315,122 +196,141 @@ var oldGetClassName = document.getElementsByClassName;
 var oldGetTagName = document.getElementsByTagName;
 var oldGetName = document.getElementsByName;
 var oldGetTagNameNS = document.getElementsByTagNameNS;
+var oldQuerySelector = document.querySelector;			//new
+var oldQuerySelectorAll = document.querySelectorAll;		//new
 //New DOM-ECMAScript API
 if (oldGetId)
 {
 	var newGetId = function(){
-	var thispath = getXPath(oldGetId.apply(document,arguments));
-	if (thispath!="")
+	var returnValue = oldGetId.apply(document,arguments);
+	var thispathA = getXPathA(returnValue);
+	var thispathR = getXPathR(returnValue);
+	if (thispathA!="")
 	{
-	//If this node is attached to the root DOM tree, but not something created out of nothing.
-		//To record the sequence
-		
+		//If this node is attached to the root DOM tree, but not something created out of nothing.
 		//To record the calling stack
-		var callerInfo = getCallerInfo("getElementById");
+		var callerInfo = getCallerInfo();
 		if (callerInfo!=null)
-		//To record the acutal content.
 		{
+			//To record the acutal content.
 			seqID++;
-			if (recordedDOMActions[thispath+callerInfo]!=true)
+			if (recordedDOMActions[thispathA+callerInfo]!=true)
 			{
-				recordedDOMActions[thispath+callerInfo]=true;
-				record[DOMRecord].push({what:thispath,when:seqID,who:callerInfo,v:(enableV?getV(oldGetId.apply(document,arguments)):"")});
+				recordedDOMActions[thispathA+callerInfo]=true;
+				record[DOMRecord].push({what:thispathA,whatR:thispathR,when:seqID,who:callerInfo});		//what: always available; whatR: record only DOM nodes access that has Relative XPATH
 			}
 		}
 	}
-	return oldGetId.apply(document,arguments);
+	return returnValue;
 	};
 }
 if (oldGetClassName)
 {
 	var newGetClassName = function(){
-	//record.push('Called document.getElementsByClassName('+arguments[0]+');');	//This is only going to add a English prose to record.
-	//var thispath = getXPathCollection(oldGetClassName.apply(document,arguments));
-	//if (thispath!="")
-	//{
-		var callerInfo = getCallerInfo("getElementsByClassName");
+		var callerInfo = getCallerInfo();
 		if (callerInfo!=null)
 		{
 			seqID++;
 			if (recordedDOMActions["getElementsByClassName called on document, Class: "+arguments[0]+callerInfo]!=true)
 			{
 				recordedDOMActions["getElementsByClassName called on document, Class: "+arguments[0]+callerInfo]=true;
-				record[DOMRecord].push({what:"getElementsByClassName called on document, Class: "+arguments[0], when:seqID,who:callerInfo});
+				record[documentRecord].push({what:"getElementsByClassName called on document, Class: "+arguments[0], when:seqID, who:callerInfo});
 			}
 		}
-	//}
-	return oldGetClassName.apply(document,arguments);
+		return oldGetClassName.apply(document,arguments);
 	};
 }
 if (oldGetTagName)
 {
 	var newGetTagName = function(){
-	//record.push('Called document.getElementsByTagName('+arguments[0]+');');	//This is only going to add a English prose to record.
-	//var thispath = getXPathCollection(oldGetTagName.apply(document,arguments));
-	//if (thispath!="")
-	//{
-		var callerInfo = getCallerInfo("getElementsByTagName");	
+		var callerInfo = getCallerInfo();	
 		if (callerInfo!=null){
 			seqID++;
 			if (recordedDOMActions["getElementsByTagName called on document, Tag: "+arguments[0]+callerInfo]!=true)
 			{
 				recordedDOMActions["getElementsByTagName called on document, Tag: "+arguments[0]+callerInfo]=true;
-				record[DOMRecord].push({what:"getElementsByTagName called on document, Tag: "+arguments[0], when:seqID,who:callerInfo});
+				record[documentRecord].push({what:"getElementsByTagName called on document, Tag: "+arguments[0], when:seqID,who:callerInfo});
 			}
 		}
-	//}
-	return oldGetTagName.apply(document,arguments);
+		return oldGetTagName.apply(document,arguments);
 	};
 }
 if (oldGetTagNameNS)
 {
 	var newGetTagNameNS = function(){
-	//record.push('Called document.getElementsByTagNameNS('+arguments[0]+');');	//This is only going to add a English prose to record.
-	//var thispath = getXPathCollection(oldGetTagNameNS.apply(document,arguments));
-	//if (thispath!="")
-	//{
-		var callerInfo = getCallerInfo("getElementsByTagNameNS");	
+		var callerInfo = getCallerInfo();	
 		if (callerInfo!=null){
 		seqID++;
 		if (recordedDOMActions["getElementsByTagNameNS called on document, NS: "+arguments[0]+" Tag: "+arguments[1]+callerInfo]!=true)
 			{
 				recordedDOMActions["getElementsByTagNameNS called on document, NS: "+arguments[0]+" Tag: "+arguments[1]+callerInfo]=true;
-				record[DOMRecord].push({what:"getElementsByTagNameNS called on document: NS: "+arguments[0]+" Tag: "+arguments[1], when:seqID,who:callerInfo});
+				record[documentRecord].push({what:"getElementsByTagNameNS called on document: NS: "+arguments[0]+" Tag: "+arguments[1], when:seqID,who:callerInfo});
 			}
 		}
-	//}
-	return oldGetTagNameNS.apply(document,arguments);
+		return oldGetTagNameNS.apply(document,arguments);
 	};
 }
 if (oldGetName)
 {
 	var newGetName = function(){
-	//record.push('Called document.getElementsByName('+arguments[0]+');');	//This is only going to add a English prose to record.
-	//var thispath = getXPathCollection(oldGetName.apply(document,arguments));
-	//if (thispath!="")
-	//{	
-		var callerInfo = getCallerInfo("getElementsByName");	
+		var callerInfo = getCallerInfo();	
 		if (callerInfo!=null){
 			seqID++;
 			if (recordedDOMActions["getElementsByName called on document, Name: "+arguments[0]+callerInfo]!=true)
 			{
 				recordedDOMActions["getElementsByName called on document, Name: "+arguments[0]+callerInfo]=true;
-				record[DOMRecord].push({what:"getElementsByName called on document, Name: "+arguments[0], when:seqID,who:callerInfo});
+				record[documentRecord].push({what:"getElementsByName called on document, Name: "+arguments[0], when:seqID,who:callerInfo});
 			}
 		}
-	//}
-	return oldGetName.apply(document,arguments);
+		return oldGetName.apply(document,arguments);
 	};
 }
-
+if (oldQuerySelector)
+{
+	var newQuerySelector = function(){
+		var callerInfo = getCallerInfo();	
+		var returnValue = oldQuerySelector.apply(document,arguments);
+		var thispathA = getXPathA(returnValue);
+		var thispathR = getXPathR(returnValue);
+		if (thispathA!="")
+		{
+			if (callerInfo!=null){
+				seqID++;
+				if (recordedDOMActions[thispathA+callerInfo]!=true)
+				{
+					recordedDOMActions[thispathA+callerInfo]=true;
+					record[DOMRecord].push({what:thispathA,whatR:thispathR, when:seqID,who:callerInfo});
+				}
+			}
+		}
+		return returnValue;
+	};
+}
+if (oldQuerySelectorAll)
+{
+	var newQuerySelectorAll = function(){
+		var callerInfo = getCallerInfo();	
+		if (callerInfo!=null){
+			seqID++;
+			if (recordedDOMActions["querySelectorAll called on document, CSS selector: "+arguments[0]+callerInfo]!=true)
+			{
+				recordedDOMActions["querySelectorAll called on document, CSS selector: "+arguments[0]+callerInfo]=true;
+				record[documentRecord].push({what:"querySelectorAll called on document, CSS selector: "+arguments[0], when:seqID,who:callerInfo});
+			}
+		}
+		return oldQuerySelectorAll.apply(document,arguments);
+	};
+}
+document.querySelector = newQuerySelector;
+document.querySelectorAll = newQuerySelectorAll;
 //Get original property accessors
 var oldFirstChild = Element.prototype.__lookupGetter__('firstChild');
 var oldLastChild = Element.prototype.__lookupGetter__('lastChild');
 var oldChildren = Element.prototype.__lookupGetter__('children');
 var oldAttributes = Element.prototype.__lookupGetter__('attributes');
 //innerHTML
-oldInnerHTMLGetter = HTMLElement.prototype.__lookupGetter__('innerHTML');
-oldTextContentGetter = HTMLElement.prototype.__lookupGetter__('textContent');
+var oldInnerHTMLGetter = HTMLElement.prototype.__lookupGetter__('innerHTML');
+var oldTextContentGetter = HTMLElement.prototype.__lookupGetter__('textContent');
 //Get original DOM special properties
 var old_cookie_setter = HTMLDocument.prototype.__lookupSetter__ ('cookie');
 var old_cookie_getter = HTMLDocument.prototype.__lookupGetter__ ('cookie');
@@ -448,7 +348,7 @@ var oldLastModified = HTMLDocument.prototype.__lookupGetter__('lastModified');
 if (old_cookie_getter)
 {
 	var newCookieGetter = function(){
-		var callerInfo = getCallerInfo("cookie_getter");	
+		var callerInfo = getCallerInfo();	
 		if (callerInfo!=null){
 			seqID++;
 			if (recordedDOMActions['document.cookie read!'+callerInfo]!=true)
@@ -463,7 +363,7 @@ if (old_cookie_getter)
 if (old_cookie_setter)
 {
 	var newCookieSetter = function(str){
-		var callerInfo = getCallerInfo("cookie_setter");	
+		var callerInfo = getCallerInfo();	
 		if (callerInfo!=null){
 			seqID++;
 			if (recordedDOMActions['document.cookie set!'+callerInfo]!=true)
@@ -478,7 +378,7 @@ if (old_cookie_setter)
 if (oldImages)
 {
 	var newImages = function(){
-		var callerInfo = getCallerInfo("document.images");	
+		var callerInfo = getCallerInfo();	
 		if (callerInfo!=null){
 			seqID++;
 			if (recordedDOMActions['document.images read!'+callerInfo]!=true)
@@ -493,7 +393,7 @@ if (oldImages)
 if (oldAnchors)
 {
 	var newAnchors = function(){
-		var callerInfo = getCallerInfo("document.anchors");	
+		var callerInfo = getCallerInfo();	
 		if (callerInfo!=null){
 			seqID++;
 			if (recordedDOMActions['document.anchors read!'+callerInfo]!=true)
@@ -508,7 +408,7 @@ if (oldAnchors)
 if (oldLinks)
 {
 	var newLinks = function(){
-		var callerInfo = getCallerInfo("document.links");	
+		var callerInfo = getCallerInfo();	
 		if (callerInfo!=null){
 			seqID++;
 			if (recordedDOMActions['document.links read!'+callerInfo]!=true)
@@ -523,7 +423,7 @@ if (oldLinks)
 if (oldForms)
 {
 	var newForms = function(){
-		var callerInfo = getCallerInfo("document.forms");	
+		var callerInfo = getCallerInfo();	
 		if (callerInfo!=null){
 			seqID++;
 			if (recordedDOMActions['document.forms read!'+callerInfo]!=true)
@@ -538,7 +438,7 @@ if (oldForms)
 if (oldApplets)
 {
 	var newApplets = function(){
-		var callerInfo = getCallerInfo("document.applets");	
+		var callerInfo = getCallerInfo();	
 		if (callerInfo!=null){
 			seqID++;
 			if (recordedDOMActions['document.applets read!'+callerInfo]!=true)
@@ -553,7 +453,7 @@ if (oldApplets)
 if (oldURL)
 {
 	var newURL = function(){
-		var callerInfo = getCallerInfo("document.URL");	
+		var callerInfo = getCallerInfo();	
 		if (callerInfo!=null){
 			seqID++;
 			if (recordedDOMActions['document.URL read!'+callerInfo]!=true)
@@ -568,7 +468,7 @@ if (oldURL)
 if (oldDomain)
 {
 	var newDomain = function(){
-		var callerInfo = getCallerInfo("document.domain");	
+		var callerInfo = getCallerInfo();	
 		if (callerInfo!=null){
 			seqID++;
 			if (recordedDOMActions['document.domain read!'+callerInfo]!=true)
@@ -583,7 +483,7 @@ if (oldDomain)
 if (oldTitle)
 {
 	var newTitle = function(){
-		var callerInfo = getCallerInfo("document.title");	
+		var callerInfo = getCallerInfo();	
 		if (callerInfo!=null){
 			seqID++;
 			if (recordedDOMActions['document.title read!'+callerInfo]!=true)
@@ -598,7 +498,7 @@ if (oldTitle)
 if (oldReferrer)
 {
 	var newReferrer = function(){
-		var callerInfo = getCallerInfo("document.referrer");	
+		var callerInfo = getCallerInfo();	
 		if (callerInfo!=null){
 			seqID++;
 			if (recordedDOMActions['document.referrer read!'+callerInfo]!=true)
@@ -613,7 +513,7 @@ if (oldReferrer)
 if (oldLastModified)
 {
 	var newLastModified = function(){
-		var callerInfo = getCallerInfo("document.lastModified");	
+		var callerInfo = getCallerInfo();	
 		if (callerInfo!=null){
 			seqID++;
 			if (recordedDOMActions['document.lastModified read!'+callerInfo]!=true)
@@ -675,22 +575,22 @@ if (newLastModified)
 	HTMLDocument.prototype.__defineGetter__("lastModified",newLastModified);
 }
 //old window-associated special property accessors:
-oldUserAgent = Navigator.prototype.__lookupGetter__("userAgent");
-oldPlatform = Navigator.prototype.__lookupGetter__("platform");
-oldAppCodeName = Navigator.prototype.__lookupGetter__("appCodeName");
-oldAppVersion = Navigator.prototype.__lookupGetter__("appVersion");
-oldAppName = Navigator.prototype.__lookupGetter__("appName");
-oldCookieEnabled = Navigator.prototype.__lookupGetter__("cookieEnabled");
-oldAvailHeight = Screen.prototype.__lookupGetter__("availHeight");
-oldAvailWidth = Screen.prototype.__lookupGetter__("availWidth");
-oldColorDepth = Screen.prototype.__lookupGetter__("colorDepth");
-oldHeight = Screen.prototype.__lookupGetter__("height");
-oldPixelDepth = Screen.prototype.__lookupGetter__("pixelDepth");
-oldWidth = Screen.prototype.__lookupGetter__("width");
+var oldUserAgent = Navigator.prototype.__lookupGetter__("userAgent");
+var oldPlatform = Navigator.prototype.__lookupGetter__("platform");
+var oldAppCodeName = Navigator.prototype.__lookupGetter__("appCodeName");
+var oldAppVersion = Navigator.prototype.__lookupGetter__("appVersion");
+var oldAppName = Navigator.prototype.__lookupGetter__("appName");
+var oldCookieEnabled = Navigator.prototype.__lookupGetter__("cookieEnabled");
+var oldAvailHeight = Screen.prototype.__lookupGetter__("availHeight");
+var oldAvailWidth = Screen.prototype.__lookupGetter__("availWidth");
+var oldColorDepth = Screen.prototype.__lookupGetter__("colorDepth");
+var oldHeight = Screen.prototype.__lookupGetter__("height");
+var oldPixelDepth = Screen.prototype.__lookupGetter__("pixelDepth");
+var oldWidth = Screen.prototype.__lookupGetter__("width");
 //define new window special property accessors:
 if (oldUserAgent) { 
 	var newUserAgent = function(){ 
-		var callerInfo = getCallerInfo("userAgent"); 
+		var callerInfo = getCallerInfo(); 
 		if (callerInfo!=null) {
 			seqID++;
 			if (recordedDOMActions['navigator.userAgent read!'+callerInfo]!=true)
@@ -704,7 +604,7 @@ if (oldUserAgent) {
 }
 if (oldPlatform) { 
 	var newPlatform = function(){ 
-		var callerInfo = getCallerInfo("platform"); 
+		var callerInfo = getCallerInfo(); 
 		if (callerInfo!=null) {
 			seqID++;
 			if (recordedDOMActions['navigator.platform read!'+callerInfo]!=true)
@@ -718,7 +618,7 @@ if (oldPlatform) {
 }
 if (oldAppCodeName) { 
 	var newAppCodeName = function(){ 
-		var callerInfo = getCallerInfo("appCodeName"); 
+		var callerInfo = getCallerInfo(); 
 		if (callerInfo!=null) {
 			seqID++;
 			if (recordedDOMActions['navigator.appCodeName read!'+callerInfo]!=true)
@@ -732,7 +632,7 @@ if (oldAppCodeName) {
 }
 if (oldAppVersion) { 
 	var newAppVersion = function(){ 
-		var callerInfo = getCallerInfo("appVersion"); 
+		var callerInfo = getCallerInfo(); 
 		if (callerInfo!=null) {
 			seqID++;
 			if (recordedDOMActions['navigator.appVersion read!'+callerInfo]!=true)
@@ -746,7 +646,7 @@ if (oldAppVersion) {
 }
 if (oldAppName) { 
 	var newAppName = function(){ 
-		var callerInfo = getCallerInfo("appName"); 
+		var callerInfo = getCallerInfo(); 
 		if (callerInfo!=null) {
 			seqID++;
 			if (recordedDOMActions['navigator.appName read!'+callerInfo]!=true)
@@ -760,7 +660,7 @@ if (oldAppName) {
 }
 if (oldCookieEnabled) { 
 	var newCookieEnabled = function(){ 
-		var callerInfo = getCallerInfo("cookieEnabled"); 
+		var callerInfo = getCallerInfo(); 
 		if (callerInfo!=null) {
 			seqID++;
 			if (recordedDOMActions['navigator.cookieEnabled read!'+callerInfo]!=true)
@@ -774,7 +674,7 @@ if (oldCookieEnabled) {
 }
 if (oldAvailWidth) { 
 	var newAvailWidth = function(){ 
-		var callerInfo = getCallerInfo("availWidth"); 
+		var callerInfo = getCallerInfo(); 
 		if (callerInfo!=null) {
 			seqID++;
 			if (recordedDOMActions['navigator.availWidth read!'+callerInfo]!=true)
@@ -788,7 +688,7 @@ if (oldAvailWidth) {
 }
 if (oldAvailHeight) { 
 	var newAvailHeight = function(){ 
-		var callerInfo = getCallerInfo("availHeight"); 
+		var callerInfo = getCallerInfo(); 
 		if (callerInfo!=null) {
 			seqID++;
 			if (recordedDOMActions['navigator.availHeight read!'+callerInfo]!=true)
@@ -802,7 +702,7 @@ if (oldAvailHeight) {
 }
 if (oldColorDepth) { 
 	var newColorDepth = function(){ 
-		var callerInfo = getCallerInfo("colorDepth"); 
+		var callerInfo = getCallerInfo(); 
 		if (callerInfo!=null) {
 			seqID++;
 			if (recordedDOMActions['navigator.colorDepth read!'+callerInfo]!=true)
@@ -816,7 +716,7 @@ if (oldColorDepth) {
 }
 if (oldHeight) { 
 	var newHeight = function(){ 
-		var callerInfo = getCallerInfo("height"); 
+		var callerInfo = getCallerInfo(); 
 		if (callerInfo!=null) {
 			seqID++;
 			if (recordedDOMActions['navigator.height read!'+callerInfo]!=true)
@@ -830,7 +730,7 @@ if (oldHeight) {
 }
 if (oldWidth) { 
 	var newWidth = function(){ 
-		var callerInfo = getCallerInfo("width"); 
+		var callerInfo = getCallerInfo(); 
 		if (callerInfo!=null) {
 			seqID++;
 			if (recordedDOMActions['navigator.width read!'+callerInfo]!=true)
@@ -844,7 +744,7 @@ if (oldWidth) {
 }
 if (oldPixelDepth) { 
 	var newPixelDepth = function(){ 
-		var callerInfo = getCallerInfo("pixeldepth"); 
+		var callerInfo = getCallerInfo(); 
 		if (callerInfo!=null) {
 			seqID++;
 			if (recordedDOMActions['navigator.pixelDepth read!'+callerInfo]!=true)
@@ -897,27 +797,30 @@ var i = 0;
 var oldEGetTagName = new Array();
 var oldEGetClassName = new Array();
 var oldEGetTagNameNS = new Array();
-
+var oldEQuerySelector = new Array();
+var oldEQuerySelectorAll = new Array();
 for (; i<allElementsType.length; i++)
 {
 	//store element.getElementsByTagName to old value
 	oldEGetTagName[i] = allElementsType[i].prototype.getElementsByTagName;
 	oldEGetClassName[i] = allElementsType[i].prototype.getElementsByClassName;
 	oldEGetTagNameNS[i] = allElementsType[i].prototype.getElementsByTagNameNS;
+	oldEQuerySelector[i] = allElementsType[i].prototype.querySelector;
+	oldEQuerySelectorAll[i] = allElementsType[i].prototype.querySelectorAll;
+	allElementsType[i].prototype.__defineGetter__('parentNode',function(){var returnValue = oldParentNode.apply(this); var thispathA = getXPathA(returnValue); var thispathR = getXPathR(returnValue); var callerInfo = getCallerInfo(); if ((thispathA!="")&&(callerInfo!=null)) {seqID++; if (recordedDOMActions[thispathA+callerInfo]!=true) { recordedDOMActions[thispathA+callerInfo]=true; record[DOMRecord].push({what:thispathA,when:seqID,who:callerInfo,whatR:thispathR});}} return returnValue;});
 	
-	allElementsType[i].prototype.__defineGetter__('parentNode',function(){var thispath = getXPath(oldParentNode.apply(this)); var callerInfo = getCallerInfo("parentNode"); if ((thispath!="")&&(callerInfo!=null)) {seqID++; if (recordedDOMActions[thispath+callerInfo]!=true) { recordedDOMActions[thispath+callerInfo]=true; record[DOMRecord].push({what:thispath,when:seqID,who:callerInfo,v:(enableV?getV(oldParentNode.apply(this)):"")});}} return oldParentNode.apply(this);});
+	allElementsType[i].prototype.__defineGetter__('nextSibling',function(){var returnValue = oldNextSibling.apply(this); var thispathA = getXPathA(returnValue); var thispathR = getXPathR(returnValue); var callerInfo = getCallerInfo(); if ((thispathA!="")&&(callerInfo!=null)) {seqID++; if (recordedDOMActions[thispathA+callerInfo]!=true) { recordedDOMActions[thispathA+callerInfo]=true; record[DOMRecord].push({what:thispathA,when:seqID,who:callerInfo,whatR:thispathR});}} return returnValue;});
+
+	allElementsType[i].prototype.__defineGetter__('previousSibling',function(){var returnValue = oldPreviousSibling.apply(this); var thispathA = getXPathA(returnValue); var thispathR = getXPathR(returnValue); var callerInfo = getCallerInfo(); if ((thispathA!="")&&(callerInfo!=null)) {seqID++; if (recordedDOMActions[thispathA+callerInfo]!=true) { recordedDOMActions[thispathA+callerInfo]=true; record[DOMRecord].push({what:thispathA,when:seqID,who:callerInfo,whatR:thispathR});}} return returnValue;});
+
+	allElementsType[i].prototype.__defineGetter__('firstChild',function(){var returnValue = oldFirstChild.apply(this); var thispathA = getXPathA(returnValue); var thispathR = getXPathR(returnValue); var callerInfo = getCallerInfo(); if ((thispathA!="")&&(callerInfo!=null)) {seqID++; if (recordedDOMActions[thispathA+callerInfo]!=true) { recordedDOMActions[thispathA+callerInfo]=true; record[DOMRecord].push({what:thispathA,when:seqID,who:callerInfo,whatR:thispathR});}} return returnValue;});
 	
-	allElementsType[i].prototype.__defineGetter__('nextSibling',function(){var thispath = getXPath(oldNextSibling.apply(this)); var callerInfo = getCallerInfo("nextSibling"); if ((thispath!="")&&(callerInfo!=null)) {seqID++; if (recordedDOMActions[thispath+callerInfo]!=true) { recordedDOMActions[thispath+callerInfo]=true; record[DOMRecord].push({what:thispath,when:seqID,who:callerInfo,v:(enableV?getV(oldNextSibling.apply(this)):"")});}} return oldNextSibling.apply(this);});
-	
-	allElementsType[i].prototype.__defineGetter__('previousSibling',function(){var thispath = getXPath(oldPreviousSibling.apply(this)); var callerInfo = getCallerInfo("previousSibling"); if ((thispath!="")&&(callerInfo!=null)) {seqID++; if (recordedDOMActions[thispath+callerInfo]!=true) { recordedDOMActions[thispath+callerInfo]=true; record[DOMRecord].push({what:thispath,when:seqID,who:callerInfo,v:(enableV?getV(oldPreviousSibling.apply(this)):"")});}} return oldPreviousSibling.apply(this);});
-	
-	allElementsType[i].prototype.__defineGetter__('firstChild',function(){var thispath = getXPath(oldFirstChild.apply(this)); var callerInfo = getCallerInfo("firstChild"); if ((thispath!="")&&(callerInfo!=null)) {seqID++; if (recordedDOMActions[thispath+callerInfo]!=true) { recordedDOMActions[thispath+callerInfo]=true; record[DOMRecord].push({what:thispath,when:seqID,who:callerInfo,v:(enableV?getV(oldFirstChild.apply(this)):"")});}} return oldFirstChild.apply(this);});
-	
-	allElementsType[i].prototype.__defineGetter__('lastChild',function(){var thispath = getXPath(oldLastChild.apply(this)); var callerInfo = getCallerInfo("lastChild"); if ((thispath!="")&&(callerInfo!=null)) {seqID++; if (recordedDOMActions[thispath+callerInfo]!=true) { recordedDOMActions[thispath+callerInfo]=true; record[DOMRecord].push({what:thispath,when:seqID,who:callerInfo,v:(enableV?getV(oldLastChild.apply(this)):"")});}} return oldLastChild.apply(this);});
-	
-	allElementsType[i].prototype.__defineGetter__('children',function(){var thispath = getXPath(this); var callerInfo = getCallerInfo("children"); if ((thispath!="")&&(callerInfo!=null)) {seqID++; if (recordedDOMActions["Children called on: "+thispath+callerInfo]!=true) { recordedDOMActions["Children called on: "+thispath+callerInfo]=true; record[DOMRecord].push({what:"Children called on: "+ thispath,when:seqID,who:callerInfo,v:(enableV?getV(this):"")});}} return oldChildren.apply(this);});
-	
-	allElementsType[i].prototype.__defineGetter__('childNodes',function(){var thispath = getXPath(this); var callerInfo = getCallerInfo("childNodes"); if ((thispath!="")&&(callerInfo!=null)) {seqID++; if (recordedDOMActions["childNodes called on: "+thispath+callerInfo]!=true) { recordedDOMActions["childNodes called on: "+thispath+callerInfo]=true; record[DOMRecord].push({what:"childNodes called on: "+thispath,when:seqID,who:callerInfo,v:(enableV?getV(this):"")});}} return oldChildNodes.apply(this);});	
+	allElementsType[i].prototype.__defineGetter__('lastChild',function(){var returnValue = oldLastChild.apply(this); var thispathA = getXPathA(returnValue); var thispathR = getXPathR(returnValue); var callerInfo = getCallerInfo(); if ((thispathA!="")&&(callerInfo!=null)) {seqID++; if (recordedDOMActions[thispathA+callerInfo]!=true) { recordedDOMActions[thispathA+callerInfo]=true; record[DOMRecord].push({what:thispathA,when:seqID,who:callerInfo,whatR:thispathR});}} return returnValue;});
+
+	allElementsType[i].prototype.__defineGetter__('children',function(){var thispathA = getXPathA(this); var thispathR = getXPathR(this); var callerInfo = getCallerInfo(); if ((thispathA!="")&&(callerInfo!=null)) {seqID++; if (recordedDOMActions["Children called on: "+thispathA+callerInfo]!=true) { recordedDOMActions["Children called on: "+thispathA+callerInfo]=true; record[DOMRecord].push({what:thispathA,when:seqID,who:callerInfo,whatR:thispathR,extraInfo:"children"});}} return oldChildren.apply(this);});
+
+	allElementsType[i].prototype.__defineGetter__('childNodes',function(){var thispathA = getXPathA(this); var thispathR = getXPathR(this); var callerInfo = getCallerInfo(); if ((thispathA!="")&&(callerInfo!=null)) {seqID++; if (recordedDOMActions["childNodes called on: "+thispathA+callerInfo]!=true) { recordedDOMActions["childNodes called on: "+thispathA+callerInfo]=true; record[DOMRecord].push({what:thispathA,when:seqID,who:callerInfo,whatR:thispathR,extraInfo:"childNodes"});}} return oldChildNodes.apply(this);});
+
 }
 var oldGetAttr = new Array();
 var oldSetAttr = new Array();
@@ -945,63 +848,118 @@ for (i=0; i<allElementsType.length; i++)
 			}
 		}
 		//record.push('Called someElement.getElementsByTagName('+arguments[0]+');');	//This is only going to add a English prose to record.
-		var thispath = getXPath(this);
-		var callerInfo = getCallerInfo("getElementsByTagName");
-		if ((thispath!="")&&(callerInfo!=null))
+		var thispathA = getXPathA(this);
+		var thispathR = getXPathR(this);
+		var callerInfo = getCallerInfo();
+		if ((thispathA!="")&&(callerInfo!=null))
 		{
 			seqID++;
-			if (recordedDOMActions["getElementsByTagName called on "+thispath+" Tag: "+arguments[0]+callerInfo]!=true) 
+			if (recordedDOMActions["getElementsByTagName called on "+thispathA+" Tag: "+arguments[0]+callerInfo]!=true) 
 			{ 
-				recordedDOMActions["getElementsByTagName called on "+thispath+" Tag: "+arguments[0]+callerInfo]=true; 
-				record[DOMRecord].push({what:thispath,when:seqID,who:callerInfo,v:(enableV?getV(this):""),extraInfo:"getElementsByTagName, Tag:"+arguments[0]});			
+				recordedDOMActions["getElementsByTagName called on "+thispathA+" Tag: "+arguments[0]+callerInfo]=true; 
+				record[DOMRecord].push({what:thispathA,when:seqID,who:callerInfo,whatR:thispathR,extraInfo:"getElementsByTagName, Tag:"+arguments[0]});			
 			}
 		}
 		return func.apply(this,arguments);
 	};
 	allElementsType[i].prototype.getElementsByClassName = function(){
-		var func;
+		var func = oldEGetTagName[50];
 		var j;
 		for (j=0; j < allElementsType.length; j++)
 		{
 			if ((this.constructor==allElementsType[j])||(this.__proto__==allElementsType[j].prototype)) func = oldEGetClassName[j];
 		}
 		//record.push('Called someElement.getElementsByClassName('+arguments[0]+');');	//This is only going to add a English prose to record.
-		var thispath = getXPath(this);
+		var thispathA = getXPathA(this);
+		var thispathR = getXPathR(this);
 		var callerInfo = getCallerInfo("getElementsByClassName");
-		if ((thispath!="")&&(callerInfo!=null))
+		if ((thispathA!="")&&(callerInfo!=null))
 		{
 			seqID++;
-			if (recordedDOMActions["getElementsByClassName called on "+thispath+" Class: "+arguments[0]+callerInfo]!=true) 
+			if (recordedDOMActions["getElementsByClassName called on "+thispathA+" Class: "+arguments[0]+callerInfo]!=true) 
 			{ 
-				recordedDOMActions["getElementsByClassName called on "+thispath+" Class: "+arguments[0]+callerInfo]=true; 
-				record[DOMRecord].push({what:thispath,when:seqID,who:callerInfo,v:(enableV?getV(this):""),extraInfo:"getElementsByClassName, Tag:"+arguments[0]});
+				recordedDOMActions["getElementsByClassName called on "+thispathA+" Class: "+arguments[0]+callerInfo]=true; 
+				record[DOMRecord].push({what:thispathA,when:seqID,who:callerInfo,whatR:thispathR,extraInfo:"getElementsByClassName, Tag:"+arguments[0]});
 			}
 		}
 		return func.apply(this,arguments);
 	};
 	allElementsType[i].prototype.getElementsByTagNameNS = function(){
-		var func;
+		var func = oldEGetTagName[50];
 		var j;
 		for (j=0; j < allElementsType.length; j++)
 		{
 			if ((this.constructor==allElementsType[j])||(this.__proto__==allElementsType[j].prototype)) func = oldEGetTagNameNS[j];
 		}
 		//record.push('Called someElement.getElementsByTagNameNS('+arguments[0]+');');	//This is only going to add a English prose to record.
-		var thispath = getXPath(this);
+		var thispathA = getXPathA(this);
+		var thispathR = getXPathR(this);
 		var callerInfo = getCallerInfo("getElementsByTagNameNS");
-		if ((thispath!="")&&(callerInfo!=null))
+		if ((thispathA!="")&&(callerInfo!=null))
 		{
 			seqID++;
-			if (recordedDOMActions["getElementsByTagNameNS called on "+thispath+" NS: "+arguments[0]+" Tag: "+arguments[1]+callerInfo]!=true) 
+			if (recordedDOMActions["getElementsByTagNameNS called on "+thispathA+" NS: "+arguments[0]+" Tag: "+arguments[1]+callerInfo]!=true) 
 			{ 
-				recordedDOMActions["getElementsByTagNameNS called on "+thispath+" NS: "+arguments[0]+" Tag: "+arguments[1]+callerInfo]=true; 
-				record[DOMRecord].push({what:thispath,when:seqID,who:callerInfo,v:(enableV?getV(this):""),extraInfo:"getElementsByTagNameNS, NS: "+arguments[0]+", Tag: "+arguments[1]});
+				recordedDOMActions["getElementsByTagNameNS called on "+thispathA+" NS: "+arguments[0]+" Tag: "+arguments[1]+callerInfo]=true; 
+				record[DOMRecord].push({what:thispathA,when:seqID,who:callerInfo,whatR:thispathR,extraInfo:"getElementsByTagNameNS, NS: "+arguments[0]+", Tag: "+arguments[1]});
 			}
 		}
 		return func.apply(this,arguments);
 	};
+	allElementsType[i].prototype.querySelector = function(){
+		var func = oldEGetTagName[50];		//HTMLObjectElement in FF has a bug. This is a ad hoc workaround.
+		var j;
+		for (j=0; j < allElementsType.length; j++)
+		{
+			if ((this.constructor==allElementsType[j])||(this.__proto__==allElementsType[j].prototype))
+			{
+				func = oldEQuerySelector[j];
+			}
+		}
+		var returnValue = func.apply(this,arguments);
+		var thispathA = getXPathA(returnValue);
+		var thispathR = getXPathR(returnValue);
+		var callerInfo = getCallerInfo();
+		if ((thispathA!="")&&(callerInfo!=null))
+		{
+			seqID++;
+			if (recordedDOMActions[thispathA+callerInfo]!=true) documentRecord
+			{ 
+				recordedDOMActions[thispathA+callerInfo]=true; 
+				record[DOMRecord].push({what:thispathA,when:seqID,who:callerInfo,whatR:thispathR});			
+			}
+		}
+		return returnValue;
+	};
+	allElementsType[i].prototype.querySelectorAll = function(){
+		var func = oldEGetTagName[50];		//HTMLObjectElement in FF has a bug. This is a ad hoc workaround.
+		var j;
+		for (j=0; j < allElementsType.length; j++)
+		{
+			if ((this.constructor==allElementsType[j])||(this.__proto__==allElementsType[j].prototype))
+			{
+				func = oldEQuerySelectorAll[j];
+			}
+		}
+		var thispathA = getXPathA(this);
+		var thispathR = getXPathR(this);
+		var callerInfo = getCallerInfo();
+		if ((thispathA!="")&&(callerInfo!=null))
+		{
+			seqID++;
+			if (recordedDOMActions["querySelectorAll called on "+thispathA+" Tag: "+arguments[0]+callerInfo]!=true) 
+			{ 
+				recordedDOMActions["querySelectorAll called on "+thispathA+" Tag: "+arguments[0]+callerInfo]=true; 
+				record[DOMRecord].push({what:thispathA,when:seqID,who:callerInfo,whatR:thispathR,extraInfo:"querySelectorAll, Tag:"+arguments[0]});			
+			}
+		}
+		return func.apply(this,arguments);
+	};
+////////////////////////////
+
 	allElementsType[i].prototype.getAttribute = function(){
-		var func;
+		//of course, there is more ways to get/set attribute, including getAttributeNode, even innerHTML and then parse it. This is not a complete defense but could be if we really want to deploy it.
+		var func = oldEGetTagName[50];
 		var j;
 		for (j=0; j < allElementsType.length; j++)
 		{
@@ -1009,22 +967,23 @@ for (i=0; i<allElementsType.length; i++)
 		}
 		if ((arguments[0]!=null)&&(arguments[0].toLowerCase!=null)&&(arguments[0].toLowerCase()=="specialid"))
 		{
-			var thispath = getXPath(this);
+			var thispathA = getXPathA(this);
+			var thispathR = getXPathR(this);
 			var callerInfo = getCallerInfo("getAttribute");
-			if ((thispath!="")&&(callerInfo!=null))
+			if ((thispathA!="")&&(callerInfo!=null))
 			{
 				seqID++;
-				if (recordedDOMActions["getAttribute specialId called on "+thispath+callerInfo]!=true) 
+				if (recordedDOMActions["getAttribute specialId called on "+thispathA+callerInfo]!=true) 
 				{ 
-					recordedDOMActions["getAttribute specialId called on "+thispath+callerInfo]=true; 
-					record[DOMRecord].push({what:thispath,when:seqID,who:callerInfo,v:(enableV?getV(this):""),extraInfo:"getAttribute specialId called"});
+					recordedDOMActions["getAttribute specialId called on "+thispathA+callerInfo]=true; 
+					record[DOMRecord].push({what:thispathA,when:seqID,who:callerInfo,whatR:thispathR,extraInfo:"getAttribute specialId called"});
 				}
 			}
 		}
 		return func.apply(this,arguments);
 	};
 	allElementsType[i].prototype.setAttribute = function(){
-		var func;
+		var func = oldEGetTagName[50];
 		var j;
 		for (j=0; j < allElementsType.length; j++)
 		{
@@ -1032,22 +991,23 @@ for (i=0; i<allElementsType.length; i++)
 		}
 		if ((arguments[0]!=null)&&(arguments[0].toLowerCase!=null)&&(arguments[0].toLowerCase()=="specialid"))
 		{
-			var thispath = getXPath(this);
+			var thispathA = getXPathA(this);
+			var thispathR = getXPathR(this);
 			var callerInfo = getCallerInfo("setAttribute");
-			if ((thispath!="")&&(callerInfo!=null))
+			if ((thispathA!="")&&(callerInfo!=null))
 			{
 				seqID++;
-				if (recordedDOMActions["setAttribute specialId called on "+thispath+" attr: "+arguments[1]+callerInfo]!=true) 
+				if (recordedDOMActions["setAttribute specialId called on "+thispathA+" attr: "+arguments[1]+callerInfo]!=true) 
 				{ 
-					recordedDOMActions["setAttribute specialId called on "+thispath+" attr: "+arguments[1]+callerInfo]=true; 
-					record[DOMRecord].push({what:thispath,when:seqID,who:callerInfo,v:(enableV?getV(this):""),extraInfo:"setAttribute specialId called, attr: "+arguments[1]});
+					recordedDOMActions["setAttribute specialId called on "+thispathA+" attr: "+arguments[1]+callerInfo]=true; 
+					record[DOMRecord].push({what:thispathA,when:seqID,who:callerInfo,whatR:thispathR,extraInfo:"setAttribute specialId called, attr: "+arguments[1]});
 				}
 			}
 		}
 		return func.apply(this,arguments);
 	};
 	allElementsType[i].prototype.hasAttribute = function(){
-		var func;
+		var func = oldEGetTagName[50];
 		var j;
 		for (j=0; j < allElementsType.length; j++)
 		{
@@ -1055,15 +1015,16 @@ for (i=0; i<allElementsType.length; i++)
 		}
 		if ((arguments[0]!=null)&&(arguments[0].toLowerCase!=null)&&(arguments[0].toLowerCase()=="specialid"))
 		{
-			var thispath = getXPath(this);
+			var thispathA = getXPathA(this);
+			var thispathR = getXPathR(this);
 			var callerInfo = getCallerInfo("hasAttribute");
-			if ((thispath!="")&&(callerInfo!=null))
+			if ((thispathA!="")&&(callerInfo!=null))
 			{
 				seqID++;
-				if (recordedDOMActions["hasAttribute specialId called on "+thispath+callerInfo]!=true) 
+				if (recordedDOMActions["hasAttribute specialId called on "+thispathA+callerInfo]!=true) 
 				{ 
-					recordedDOMActions["hasAttribute specialId called on "+thispath+callerInfo]=true; 
-					record[DOMRecord].push({what:thispath,when:seqID,who:callerInfo,v:(enableV?getV(this):""),extraInfo:"hasAttribute specialId called"});
+					recordedDOMActions["hasAttribute specialId called on "+thispathA+callerInfo]=true; 
+					record[DOMRecord].push({what:thispathA,when:seqID,who:callerInfo,whatR:thispathR,extraInfo:"hasAttribute specialId called"});
 				}
 			}
 		}
@@ -1071,7 +1032,7 @@ for (i=0; i<allElementsType.length; i++)
 	};
 	allElementsType[i].prototype.insertBefore = function(){
 	//var insertedElement = parentElement.insertBefore(newElement, referenceElement);
-		var func;
+		var func = oldEGetTagName[50];
 		var get;
 		var j;
 		for (j=0; j < allElementsType.length; j++)
@@ -1089,7 +1050,7 @@ for (i=0; i<allElementsType.length; i++)
 		return func.apply(this,arguments);
 	};
 	allElementsType[i].prototype.appendChild = function(){
-		var func;
+		var func = oldEGetTagName[50];
 		var get;
 		var j;
 		for (j=0; j < allElementsType.length; j++)
@@ -1108,7 +1069,7 @@ for (i=0; i<allElementsType.length; i++)
 	};
 	allElementsType[i].prototype.replaceChild = function(){
 	//replacedNode = parentNode.replaceChild(newChild, oldChild);
-		var func;
+		var func = oldEGetTagName[50];
 		var j;
 		for (j=0; j < allElementsType.length; j++)
 		{
@@ -1127,15 +1088,16 @@ for (i=0; i<allElementsType.length; i++)
 	if (oldInnerHTMLGetter)
 	{
 		allElementsType[i].prototype.__defineGetter__('innerHTML',function(str){
-		var thispath = getXPath(this);
+		var thispathA = getXPathA(this);
+		var thispathR = getXPathR(this);
 		var callerInfo = getCallerInfo("innerHTML");
-		if ((thispath!="")&&(callerInfo!=null))
+		if ((thispathA!="")&&(callerInfo!=null))
 		{
 			seqID++;
-			if (recordedDOMActions['Read innerHTML of this element: '+thispath+'!'+callerInfo]!=true) 
+			if (recordedDOMActions['Read innerHTML of this element: '+thispathA+'!'+callerInfo]!=true) 
 			{ 
-				recordedDOMActions['Read innerHTML of this element: '+thispath+'!'+callerInfo]=true; 
-				record[DOMRecord].push({what:thispath,when:seqID,who:callerInfo,v:(enableV?getV(this):""),extraInfo:"innerHTML read"});
+				recordedDOMActions['Read innerHTML of this element: '+thispathA+'!'+callerInfo]=true; 
+				record[DOMRecord].push({what:thispathA,when:seqID,who:callerInfo,whatR:thispathR,extraInfo:"innerHTML read"});
 			}
 		}
 		return oldInnerHTMLGetter.call(this,str);
@@ -1144,15 +1106,16 @@ for (i=0; i<allElementsType.length; i++)
 	if (oldTextContentGetter)
 	{
 		allElementsType[i].prototype.__defineGetter__('textContent',function(str){
-		var thispath = getXPath(this);
+		var thispathA = getXPathA(this);
+		var thispathR = getXPathR(this);
 		var callerInfo = getCallerInfo("textContent");
-		if ((thispath!="")&&(callerInfo!=null))
+		if ((thispathA!="")&&(callerInfo!=null))
 		{
 			seqID++;
-			if (recordedDOMActions['Read textContent of this element: '+thispath+'!'+callerInfo]!=true) 
+			if (recordedDOMActions['Read textContent of this element: '+thispathA+'!'+callerInfo]!=true) 
 			{ 
-				recordedDOMActions['Read textContent of this element: '+thispath+'!'+callerInfo]=true; 
-				record[DOMRecord].push({what:thispath,when:seqID,who:callerInfo,v:(enableV?getV(this):""),extraInfo:"textContent read"});
+				recordedDOMActions['Read textContent of this element: '+thispathA+'!'+callerInfo]=true; 
+				record[DOMRecord].push({what:thispathA,when:seqID,who:callerInfo,whatR:thispathR,extraInfo:"textContent read"});
 			}
 		}
 		return oldTextContentGetter.call(this,str);
@@ -1189,9 +1152,9 @@ function writePolicy()
 			//Rigth now we only track accesses on element node, text node and attribute node. If the node is 'others', xpath is gonna return "",
 			//so we ignore it here.
 			//We also ignore sequence info now.
-			//rawstring = rawstring + "When = "+rawdata[0][i].when+" What = "+rawdata[0][i].what+" Who = "+rawdata[0][i].who+"\n";
-			rawstring = rawstring + rawdata[0][i].what;
-			if ((rawdata[0][i].v)&&(rawdata[0][i].v!="")) rawstring = rawstring +" <=:| "+rawdata[0][i].v;
+			rawstring = rawstring + rawdata[0][i].whatR;
+			//if ((rawdata[0][i].whatR)&&(rawdata[0][i].whatR!="")) rawstring = rawstring +" <=:| "+rawdata[0][i].whatR;
+			rawstring = rawstring +" <=:| "+rawdata[0][i].what;
 			rawstring = rawstring + " |:=> "+rawdata[0][i].who;
 			if ((rawdata[0][i].extraInfo)&&(rawdata[0][i].extraInfo!="")) rawstring = rawstring +" <=|:| "+rawdata[0][i].extraInfo;
 			rawstring += "\n\n";

@@ -57,6 +57,7 @@ end
 files = Dir.glob($RecordDir+recordDomain+"/"+urlStructure+"/*")
 times = Array.new
 lookupTable = Hash.new
+#File.open($DF,"a"){|f| f.write($RecordDir+recordDomain+"/"+urlStructure+"/#{sanitizedURL}?"+recordId.to_s+".txt")}
 fileName = $RecordDir+recordDomain+"/"+urlStructure+"/#{sanitizedURL}?"+recordId.to_s+".txt"
 fh = File.open(fileName, 'w+')
 fh.write(recordTrace)
