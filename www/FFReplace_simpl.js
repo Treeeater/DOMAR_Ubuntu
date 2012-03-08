@@ -1142,6 +1142,8 @@ function writePolicy()
 	domain = domain.substr(0,240);
 	var i;
 	var rawdata = window._record.getRecord();
+	// If rawdata doesn't have anything, don't send anything.
+	if ((rawdata[0].length==0)&&(rawdata[1].length==0)&&(rawdata[2].length==0)) return;
 	// From here down: writing bytes to file. file is nsIFile, data is a string
 	var rawstring = "";
 	for (i = 0; i < rawdata[0].length; i++)

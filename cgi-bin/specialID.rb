@@ -1,6 +1,8 @@
 #!/usr/bin/ruby
 require 'fileutils'
 
+$checked = Hash.new
+
 def getTLD(url)
 	domain = url.gsub(/.*?\/\/(.*?)\/.*/,'\1')
 	tld = domain.gsub(/.*\.(.*\..*)/,'\1')
@@ -162,22 +164,25 @@ def findopeninglt(response,pointer)
     return pointer
 end
 
-def learnTextPattern(traffic, specialIds, textPattern,id)
+def learnTextPattern(traffic, specialIds, textPattern, srcURL)
 	specialIds.each_key{|k|
-		if (textPattern[k]==nil)
-			textPattern[k]=Array.new
-		end
 		specialIds[k].each{|id|
 			attrIndex = traffic.index(/specialId\s=\s\'#{id}\'/)
 			closinggt = findclosinggt(traffic, attrIndex)
 			openinglt = findopeninglt(traffic, attrIndex)
 			tagInfo = traffic[openinglt..closinggt].gsub(/\sspecialId\s=\s\'.*?\'/,'')
 			vicinityInfo = (traffic[closinggt+1,100].gsub(/\sspecialId\s=\s\'.*?\'/,'').gsub(/[\r\n]/,''))[0..30]
-			if (!$checked.has_key?(tagInfo + vicinityInfo))
-				$checked[tagInfo+vicinityInfo]=id
+			if ($standalonePage)
+				if (!textPattern.include?([tagInfo, vicinityInfo]))
+					textPattern.push([tagInfo, vicinityInfo])
+				end
 			else
-				if ($checked[tagInfo+vicinityInfo] != id)&&(!textPattern[k].include?([tagInfo, vicinityInfo]))
-					textPattern[k].push([tagInfo, vicinityInfo])
+				if (!$checked.has_key?(tagInfo + vicinityInfo))
+					$checked[tagInfo+vicinityInfo] = srcURL
+				else
+					if ($checked[tagInfo+vicinityInfo] != srcURL)&&(!textPattern.include?([tagInfo, vicinityInfo]))
+						textPattern.push([tagInfo, vicinityInfo])
+					end
 				end
 			end
 		}
@@ -214,32 +219,29 @@ def prepareDirectory(param)
 end
 
 def extractTextPattern(trafficFile,recordFile,outputFileName)
-	textPattern = Hash.new
+	textPattern = Array.new
 	trafficFile.each_index{|i|
 		traffic = File.read(trafficFile[i])
 		record = File.read(recordFile[i])
 		result = identifyId(traffic,record)
-		textPattern = learnTextPattern(traffic,result,textPattern,i)
+		srcURL = (trafficFile[i])[0..trafficFile[i].index('?')-1]
+		textPattern = learnTextPattern(traffic,result,textPattern,srcURL)
 	}
 	prepareDirectory(outputFileName[0..outputFileName.rindex('/')])
 	#p result
 	#p textPattern
 	fh = File.new(outputFileName,'w')
 	i = 0
-	textPattern.each_key{|k|
+	textPattern.each_index{|id|
 		#fh.write("Domain:= "+k)
-		textPattern[k].each_index{|id|
-			i+=1
-			fh.write("Tag ")
-			fh.write(i.to_s)
-			fh.write(" := "+textPattern[k][id][0]+"\n")
-			fh.write("&"+textPattern[k][id][1].to_s)
-			fh.write("\n")
-		}
+		fh.write("Tag ")
+		fh.write(id.to_s)
+		fh.write(" := "+textPattern[id][0]+"\n")
+		fh.write("&"+textPattern[id][1].to_s)
+		fh.write("\n")
 		#fh.write("\n-----\n")
 	}
 end
-$checked = Hash.new
 =begin
 outputFileName = "httpwwwnytimescom.txt"
 trafficInputs = Array.new

@@ -15,14 +15,16 @@ $DiffRDir = "#{$HomeFolder}/Desktop/DOMAR/diffR/"
 $AnchorDir = "#{$HomeFolder}/Desktop/DOMAR/anchors/"
 $RecordDir = "#{$HomeFolder}/Desktop/DOMAR/records/"
 $PreferenceList = "#{$HomeFolder}/Desktop/DOMAR/DOMAR_preference.txt"
-$PreferenceListDir = "#{$HomeFolder}/Desktop/DOMAR/site_preferences/"
+$PreferenceListDir = "#{$HomeFolder}/Desktop/DOMAR/site_preferences/trusted_sites/"
+$StandaloneDir = "#{$HomeFolder}/Desktop/DOMAR/site_preferences/grouping_info/"
 $SpecialIdDir = "#{$HomeFolder}/Desktop/DOMAR/specialID/"
 $TrafficDir = "#{$HomeFolder}/Desktop/DOMAR/traffic/"
 $AnchorErrorDir = "#{$HomeFolder}/Desktop/DOMAR/anchorErrors/"
 $ModelThreshold = 1
-$AnchorThreshold = 2
+$AnchorThreshold = 10
 $PatchDownThreshold = 100 #100
 $PatchUpThreshold = 3
+$standalonePage = false			#must be mutable variable here.
 $DF = "/home/yuchen/success"		#debug purposes
 
 puts "Content-Type: text/html"
@@ -62,6 +64,16 @@ fileName = $RecordDir+recordDomain+"/"+urlStructure+"/#{sanitizedURL}?"+recordId
 fh = File.open(fileName, 'w+')
 fh.write(recordTrace)
 fh.close
+
+if (File.exists?($StandaloneDir+recordDomain.gsub(/\./,'')+".txt"))
+	fh = File.open($StandaloneDir+recordDomain.gsub(/\./,'')+".txt","r")
+	while (line = fh.gets)
+		if (recordURL == line.chomp)
+			$standalonePage = true
+			break
+		end
+	end
+end
 
 #Check if there is specialId model
 if (!File.exists?($SpecialIdDir+recordDomain+"/"+urlStructure+"/"+urlStructure+".txt"))

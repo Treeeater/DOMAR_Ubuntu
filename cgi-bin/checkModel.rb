@@ -313,12 +313,15 @@ def AdaptAnchor(domain, url, urlStructure)
 		patchlineURLs[l].push(patchlineURL)
 	}
 	#eliminate those whose patchlineURLs only has 1 entry.
-	patchlineURLs.each_key{|l|
-		patchlineURLs[l].uniq!
-		if (patchlineURLs[l].length == 1)
-			patchlines.delete(l)
-		end
-	}
+	if (!$standalonePage)
+		# if this page is some kind of homepage that can have more than 1 entry.
+		patchlineURLs.each_key{|l|
+			patchlineURLs[l].uniq!
+			if (patchlineURLs[l].length == 1)
+				patchlines.delete(l)
+			end
+		}
+	end
 	patchlines.each_key{|l|
 		if (l.index(" => ")==nil) then next end
 		if (patchlines[l]>$PatchUpThreshold) then linesToAdd.push(l) end
