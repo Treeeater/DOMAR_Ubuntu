@@ -50,17 +50,31 @@ $RecordDir = "#{$HomeFolder}/Desktop/DOMAR/records/"
 $PreferenceList = "#{$HomeFolder}/Desktop/DOMAR/DOMAR_preference.txt"
 $PreferenceListDir = "#{$HomeFolder}/Desktop/DOMAR/site_preferences/trusted_sites/"
 $StandaloneDir = "#{$HomeFolder}/Desktop/DOMAR/site_preferences/grouping_info/"
+$GroupingDir = "#{$HomeFolder}/Desktop/DOMAR/grouping_info/"
 $SpecialIdDir = "#{$HomeFolder}/Desktop/DOMAR/specialID/"
 $TrafficDir = "#{$HomeFolder}/Desktop/DOMAR/traffic/"
 $AnchorErrorDir = "#{$HomeFolder}/Desktop/DOMAR/anchorErrors/"
 $ModelThreshold = 100
 $AnchorThreshold = 50
 $TrainNewAnchors = false
+$DF = "/home/yuchen/success"		#debug purposes
 
 def getTLD(url)
 	domain = url.gsub(/.*?\/\/(.*?)\/.*/,'\1')
 	tld = domain.gsub(/.*\.(.*\..*)/,'\1')
 	return tld
+end
+
+def LookupURLStructure(url,domain)
+	if (!File.exists?($GroupingDir+domain+"/list.txt")) then return nil end
+	grouping_info = File.open($GroupingDir+domain+"/list.txt","r")
+	while (line = grouping_info.gets)	
+		if (line =~ /#{Regexp.quote(url)}\s.*/)
+			category = line.chomp.gsub(/.*\s(.*)/,'\1')
+			return category
+		end
+	end
+	return nil
 end
 
 def extractURLStructure(url)
@@ -213,7 +227,7 @@ def approxmatching(a,b)
 	return (a==b)
 end
 
-def convertResponse(response, textPattern, url, filecnt)
+def convertResponse(response, textPattern, url, filecnt, urlStructure)
 	listToAdd = Hash.new
 	vicinityList = Hash.new
 	recordedVicinity = Hash.new
@@ -223,7 +237,6 @@ def convertResponse(response, textPattern, url, filecnt)
 	errormsg = ""
 	currentDomain = ""
 	#sanitizedurl = url.gsub(/[^a-zA-Z0-9]/,"")
-	urlStructure = extractURLStructure(url)
     	sanitizedhost = getTLD(url)
 	sanitizedhost = sanitizedhost.gsub(/[^a-zA-Z0-9]/,"")
 	textPattern.each_line{|l|
@@ -455,7 +468,6 @@ def process(response, url, host)
     if (url.index('?')!=nil) then url = url[0..url.index('?')-1] end
     puts "Begin to parse "+url
     sanitizedurl = url.gsub(/[^a-zA-Z0-9]/,"")
-    urlStructure = extractURLStructure(url)
     sanitizedhost = getTLD(url)
     filecnt = 1
     mediate = true
@@ -468,8 +480,16 @@ def process(response, url, host)
 	p "not in the mediation list"
 	mediate = false
     end
-    sanitizedhost = sanitizedhost.gsub(/[^a-zA-Z0-9]/,"")		#get rid of the dot.
+    #urlStructure = extractURLStructure(url)
     if (mediate)
+	    sanitizedhost = sanitizedhost.gsub(/[^a-zA-Z0-9]/,"")		#get rid of the dot.
+	    makeDirectory($GroupingDir+sanitizedhost+"/")
+	    urlStructure = LookupURLStructure(url,sanitizedhost)
+	    if (urlStructure==nil)
+		#no grouping information for this page, we skip it.
+		File.open($GroupingDir+sanitizedhost+"/request.txt","a"){|f| f.write(url+"\n")}		#debug purposes
+		urlStructure = "not_grouped"
+	    end
 	    if (!File.directory? $TrafficDir)
 		Dir.mkdir($TrafficDir,0777)
 	    end
@@ -479,6 +499,7 @@ def process(response, url, host)
 	    if (!File.directory? $TrafficDir+sanitizedhost+"/"+urlStructure)
 		Dir.mkdir($TrafficDir+sanitizedhost+"/"+urlStructure,0777)
 	    end
+=begin
 	    if (!File.directory? $RecordDir)
 		Dir.mkdir($RecordDir,0777)
 	    end
@@ -488,6 +509,7 @@ def process(response, url, host)
 	    if (!File.directory? $RecordDir+sanitizedhost+"/"+urlStructure)
 		Dir.mkdir($RecordDir+sanitizedhost+"/"+urlStructure,0777)
 	    end
+=end
 	    while (File.exists? $TrafficDir+"#{sanitizedhost}/#{urlStructure}/#{sanitizedurl}?"+filecnt.to_s+".txt")
 	    	filecnt+=1
 	    end
@@ -496,9 +518,10 @@ def process(response, url, host)
 	    textPattern = collectTextPattern(urlStructure, sanitizedhost)
 	    if (textPattern!=nil)
 		#found policy file, we can use it directly
-		response = convertResponse(response,textPattern,url,filecnt)
+		response = convertResponse(response,textPattern,url,filecnt,urlStructure)
 		if ($TrainNewAnchors) then response = universalTraining(response) end
-	    else
+	    elsif (urlStructure!="not_grouped")
+		#we don't want to waste time adding anchors to not yet grouped urls.
 	    	response = universalTraining(response)
 	    end
 	    File.open($TrafficDir+"#{sanitizedhost}/#{urlStructure}/#{sanitizedurl}?"+filecnt.to_s+".txt", 'w+') {|f| f.write(response) }

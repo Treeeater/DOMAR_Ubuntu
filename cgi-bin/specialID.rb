@@ -9,6 +9,18 @@ def getTLD(url)
 	return tld
 end
 
+def LookupURLStructure(url,domain)
+	if (!File.exists?($GroupingDir+domain+"/list.txt")) then return nil end
+	grouping_info = File.open($GroupingDir+domain+"/list.txt","r")
+	while (line = grouping_info.gets)	
+		if (line =~ /#{Regexp.quote(url)}\s.*/)
+			category = line.chomp.gsub(/.*\s(.*)/,'\1')
+			return category
+		end
+	end
+	return nil
+end
+
 def extractURLStructure(url)
 	#for example, let's say the url at here is http://www.nytimes.com/2012/01/03/sdfi-wer-qasdf-df.html
 	protocol = url.gsub(/(.*?):\/\/.*/,'\1')	#get the protocol, normally it would be http

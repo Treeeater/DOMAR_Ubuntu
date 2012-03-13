@@ -5,6 +5,7 @@ require 'fileutils'
 require 'specialID'
 require 'buildModel'
 require 'checkModel'
+require 'grouping'
 
 #global variables
 $HomeFolder = "/home/yuchen"
@@ -17,13 +18,16 @@ $RecordDir = "#{$HomeFolder}/Desktop/DOMAR/records/"
 $PreferenceList = "#{$HomeFolder}/Desktop/DOMAR/DOMAR_preference.txt"
 $PreferenceListDir = "#{$HomeFolder}/Desktop/DOMAR/site_preferences/trusted_sites/"
 $StandaloneDir = "#{$HomeFolder}/Desktop/DOMAR/site_preferences/grouping_info/"
+$GroupingDir = "#{$HomeFolder}/Desktop/DOMAR/grouping_info/"
 $SpecialIdDir = "#{$HomeFolder}/Desktop/DOMAR/specialID/"
 $TrafficDir = "#{$HomeFolder}/Desktop/DOMAR/traffic/"
 $AnchorErrorDir = "#{$HomeFolder}/Desktop/DOMAR/anchorErrors/"
+$LogFile = "#{$HomeFolder}/Desktop/DOMAR/log.txt"
 $ModelThreshold = 1
-$AnchorThreshold = 10
+$AnchorThreshold = 3
 $PatchDownThreshold = 100 #100
 $PatchUpThreshold = 3
+$SimilarityThreshold = 0.85
 $standalonePage = false			#must be mutable variable here.
 $DF = "/home/yuchen/success"		#debug purposes
 
@@ -34,9 +38,6 @@ puts "<body>"
 
 #Record this trace.
 cgi = CGI.new
-recordURL=""
-recordDomain = ""
-recordTrace = ""
 
 if (!(cgi.has_key?('url')&&cgi.has_key?('domain')&&cgi.has_key?('trace')&&cgi.has_key?('id')))
 	puts "</body>"
@@ -45,17 +46,20 @@ if (!(cgi.has_key?('url')&&cgi.has_key?('domain')&&cgi.has_key?('trace')&&cgi.ha
 end
 
 recordURL = CGI.unescapeHTML(cgi['url'])
-urlStructure = extractURLStructure(recordURL)
-sanitizedURL = recordURL.gsub(/[^a-zA-Z0-9]/,"")
 recordDomain = CGI.unescapeHTML(cgi['domain'])
 recordTrace = CGI.unescapeHTML(cgi['trace'])
 recordId = CGI.unescapeHTML(cgi['id'])
-if (!File.directory?($RecordDir+recordDomain))
-	Dir.mkdir($RecordDir+recordDomain, 0777)
+
+sanitizedURL = recordURL.gsub(/[^a-zA-Z0-9]/,"")
+#urlStructure = extractURLStructure(recordURL)
+urlStructure = LookupURLStructure(recordURL,recordDomain)
+if (urlStructure==nil)
+	#this url hasn't been grouped yet, we stop recording everything and begin grouping it.
+	cur_traffic = File.read($TrafficDir+recordDomain+"/not_grouped/"+sanitizedURL+"?"+recordId+".txt")
+	Grouping(cur_traffic,recordDomain,recordURL)
+	return
 end
-if (!File.directory?($RecordDir+recordDomain+"/"+urlStructure))
-	Dir.mkdir($RecordDir+recordDomain+"/"+urlStructure, 0777)
-end
+makeDirectory($RecordDir+recordDomain+"/"+urlStructure)
 files = Dir.glob($RecordDir+recordDomain+"/"+urlStructure+"/*")
 times = Array.new
 lookupTable = Hash.new
@@ -111,6 +115,7 @@ else
 	CheckModel(recordTrace, recordDomain, sanitizedURL, urlStructure, recordId, relative)
 	AdaptAnchor(recordDomain, sanitizedURL, urlStructure)
 end
+File.open($LogFile, "a"){|f| f.write(recordURL+recordId+"\n")}
 puts "<h1>!</h1>"
 puts "</body>"
 puts "</html>"

@@ -1189,7 +1189,7 @@ function writePolicy()
 	http.send(payload);
 };
 
-window.addEventListener('beforeunload',writePolicy,false);
+window.addEventListener('beforeunload',writePolicy,true);
 //window.setTimeout("_record.writePolicy2();",5000);
 //document.head.removeChild(oldGetTagName.call(document,'script')[0]);			//remove myself
 return (function(){this.getRecord = function(){return record;}; this.writePolicy2 = writePolicy; this.Push = function(a){if (a!="") trustedDomains.push(a)}; this.setId = function(id){if (id!="") filecnt = id;}; this.Get = function() {return trustedDomains}; return this;});
