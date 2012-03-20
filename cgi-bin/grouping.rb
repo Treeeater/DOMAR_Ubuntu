@@ -1,7 +1,6 @@
 #!/usr/bin/ruby
 require 'treeDistance'
 
-=begin
 def Grouping(traffic,domain,url)
 	doc1 = Hpricot(traffic)
 	maxSimilarity = 0.0
@@ -15,6 +14,7 @@ def Grouping(traffic,domain,url)
 		rootNode1 = doc1.search("/html")
 		rootNode2 = doc2.search("/html")
 		sim = GetSimilarity(rootNode1[0],rootNode2[0])
+		#File.open($DF,"a"){|f| f.write(dir+" "+sim.to_s+"\n")}
 		if (sim > $SimilarityThreshold) && (sim > maxSimilarity)
 			maxSimilarity = sim
 			index = dir.gsub(/.*\/(.*)/,'\1')
@@ -25,14 +25,18 @@ def Grouping(traffic,domain,url)
 		File.open($GroupingDir+domain+"/list.txt","a") {|f| f.write(url+" "+index+"\n")}
 	else
 		#we establish a new group for this traffic
-		newCategoryName = dirs.length.to_s
-		Dir.mkdir($TrafficDir+domain+"/"+newCategoryName+"/", 0777)
-		File.open($GroupingDir+domain+"/list.txt","a") {|f| f.write(url+" "+newCategoryName+"\n")}
-		File.open($TrafficDir+domain+"/"+newCategoryName+"/sample.txt", "w"){|f| f.write(traffic)}
+		#newCategoryName = dirs.length.to_s
+		newCategoryName = 1
+		while (File.directory?($TrafficDir+domain+"/"+newCategoryName.to_s+"/"))
+			newCategoryName += 1
+		end
+		Dir.mkdir($TrafficDir+domain+"/"+newCategoryName.to_s+"/", 0777)
+		File.open($GroupingDir+domain+"/list.txt","a") {|f| f.write(url+" "+newCategoryName.to_s+"\n")}
+		File.open($TrafficDir+domain+"/"+newCategoryName.to_s+"/sample.txt", "w"){|f| f.write(traffic)}
 	end
 end
-=end
 
+=begin
 def ExtractURLStructure(url)
 	#for example, let's say the url at here is http://www.nytimes.com/2012/01/03/sdfi-wer-qasdf-df.html
 	protocol = url.gsub(/(.*?):\/\/.*/,'\1') #get the protocol, normally it would be http
@@ -81,3 +85,4 @@ def Grouping(traffic,domain,url)
 	if (!File.directory?($TrafficDir+domain+"/"+newCategoryName+"/")) then Dir.mkdir($TrafficDir+domain+"/"+newCategoryName+"/", 0777) end
 	File.open($GroupingDir+domain+"/list.txt","a") {|f| f.write(url+" "+newCategoryName+"\n")}
 end
+=end
