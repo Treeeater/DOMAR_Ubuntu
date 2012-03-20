@@ -9,12 +9,13 @@ def Grouping(traffic,domain,url)
 	dirs.each{|dir|
 		if (dir==$TrafficDir+domain+"/not_grouped") then next end
 		files = Dir.glob(dir+"/*")
+		if files.length==0 then next end
 		targetTraffic = File.read(files[rand(files.length)])		#get a random file in that category.
 		doc2 = Hpricot(targetTraffic)
 		rootNode1 = doc1.search("/html")
 		rootNode2 = doc2.search("/html")
 		sim = GetSimilarity(rootNode1[0],rootNode2[0])
-		#File.open($DF,"a"){|f| f.write(dir+" "+sim.to_s+"\n")}
+		File.open($DF,"a"){|f| f.write(dir+" "+sim.to_s+"\n")}
 		if (sim > $SimilarityThreshold) && (sim > maxSimilarity)
 			maxSimilarity = sim
 			index = dir.gsub(/.*\/(.*)/,'\1')
