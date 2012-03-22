@@ -313,12 +313,17 @@ def AdaptAnchor(domain, url, urlStructure)
 	}
 	#eliminate those whose patchlineURLs only has 1 entry.
 	#first get the standalone status
-	if (File.exists($StandaloneDir + domain + ".txt"))
+	if (File.exists?($StandaloneDir + domain + ".txt"))
 		standaloneFC = File.read($StandaloneDir + domain + ".txt")
 		standaloneFC.each_line{|l|
 			if (l.index(urlStructure)!=nil)
 				$standalonePage = l.gsub(/.*\s(.*)/,'\1')
-				if ($standalonePage[0]==116) then $standalonePage = true else $standalonePage = false end
+				if ($standalonePage[0]==116) 
+					$standalonePage = true
+				else 
+					$standalonePage = false 
+				end
+				break
 			end
 		}
 	end
