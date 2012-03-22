@@ -15,7 +15,7 @@ def Grouping(traffic,domain,url)
 		rootNode1 = doc1.search("/html")
 		rootNode2 = doc2.search("/html")
 		sim = GetSimilarity(rootNode1[0],rootNode2[0])
-		File.open($DF,"a"){|f| f.write(dir+" "+sim.to_s+"\n")}
+		#File.open($DF,"a"){|f| f.write(dir+" "+sim.to_s+"\n")}
 		if (sim > $SimilarityThreshold) && (sim > maxSimilarity)
 			maxSimilarity = sim
 			index = dir.gsub(/.*\/(.*)/,'\1')

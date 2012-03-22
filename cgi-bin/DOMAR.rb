@@ -28,7 +28,7 @@ $AnchorThreshold = 3
 $PatchDownThreshold = 100 #100
 $PatchUpThreshold = 3
 $SimilarityThreshold = 0.85
-$standalonePage = false			#must be mutable variable here.
+$standalonePage = true			#must be mutable variable here.
 $DF = "/home/yuchen/success"		#debug purposes
 
 puts "Content-Type: text/html"
@@ -68,7 +68,7 @@ fileName = $RecordDir+recordDomain+"/"+urlStructure+"/#{sanitizedURL}?"+recordId
 fh = File.open(fileName, 'w+')
 fh.write(recordTrace)
 fh.close
-
+=begin
 if (File.exists?($StandaloneDir+recordDomain.gsub(/\./,'')+".txt"))
 	fh = File.open($StandaloneDir+recordDomain.gsub(/\./,'')+".txt","r")
 	while (line = fh.gets)
@@ -78,7 +78,7 @@ if (File.exists?($StandaloneDir+recordDomain.gsub(/\./,'')+".txt"))
 		end
 	end
 end
-
+=end
 #Check if there is specialId model
 if (!File.exists?($SpecialIdDir+recordDomain+"/"+urlStructure+"/"+urlStructure+".txt"))
 	#Does not exist, build it.
@@ -89,7 +89,7 @@ if (!File.exists?($SpecialIdDir+recordDomain+"/"+urlStructure+"/"+urlStructure+"
 			trafficInputs.push($TrafficDir+recordDomain+"/"+urlStructure+"/"+recordName+".txt")
 		}
 		outputPolicyFileName = $SpecialIdDir+recordDomain+"/"+urlStructure+"/"+urlStructure+".txt"
-		extractTextPattern(trafficInputs, files, outputPolicyFileName)
+		extractTextPattern(trafficInputs, files, outputPolicyFileName, recordDomain, urlStructure)
 		prepareDirectory($TrafficDir+recordDomain+"/"+urlStructure+"/.anchorSeedTraffics/")
 		prepareDirectory($RecordDir+recordDomain+"/"+urlStructure+"/.anchorSeedRecords/")
 		records = Dir.glob($RecordDir+recordDomain+"/"+urlStructure+"/*")

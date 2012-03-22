@@ -13,7 +13,6 @@ def probeXPATH(record)
 end
 
 def makeDirectory(param)
-	#cleans everything in param directory! Use extreme caution!
 	if (!File.directory?(param))
 		#create the dir
 		directoryNames = param.split('/')
@@ -313,6 +312,16 @@ def AdaptAnchor(domain, url, urlStructure)
 		patchlineURLs[l].push(patchlineURL)
 	}
 	#eliminate those whose patchlineURLs only has 1 entry.
+	#first get the standalone status
+	if (File.exists($StandaloneDir + domain + ".txt"))
+		standaloneFC = File.read($StandaloneDir + domain + ".txt")
+		standaloneFC.each_line{|l|
+			if (l.index(urlStructure)!=nil)
+				$standalonePage = l.gsub(/.*\s(.*)/,'\1')
+				if ($standalonePage[0]=='t') then $standalonePage = true else $standalonePage = false end
+			end
+		}
+	end
 	if (!$standalonePage)
 		# if this page is some kind of homepage that can have more than 1 entry.
 		patchlineURLs.each_key{|l|

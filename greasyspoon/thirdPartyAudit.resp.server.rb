@@ -56,7 +56,7 @@ $TrafficDir = "#{$HomeFolder}/Desktop/DOMAR/traffic/"
 $AnchorErrorDir = "#{$HomeFolder}/Desktop/DOMAR/anchorErrors/"
 $ModelThreshold = 100
 $AnchorThreshold = 50
-$TrainNewAnchors = false
+$TrainNewAnchors = true
 $DF = "/home/yuchen/success"		#debug purposes
 
 def getTLD(url)
@@ -185,30 +185,31 @@ end
 
 def findclosinggt(response,pointer)
     fsmcode = 0         # 0 stands for no opening attr, 1 stands for opening single quote attr and 2 stands for opening double quote attr.
-    while (pointer<response.length)
-        if ((response[pointer..pointer]!='>')&&(response[pointer..pointer]!='\'')&&(response[pointer..pointer]!='"'))
+    l = response.length
+    while (pointer<l)
+        if ((response[pointer]!=62)&&(response[pointer]!=39)&&(response[pointer]!=34))
             pointer+=1
             next
-        elsif (response[pointer..pointer]=='>')
+        elsif (response[pointer]==62)	#>
             if (fsmcode == 0)
                 break
             end
             pointer+=1
             next
-        elsif (response[pointer..pointer]=='\'')
+        elsif (response[pointer]==39)	#'
             if (fsmcode&2!=0)
                 pointer+=1      #opening double quote attr, ignore sq
                 next
             end
-            fsmcode = 1 - fsmcode       #flip sq status
+            fsmcode = 1 ^ fsmcode       #flip sq status
             pointer += 1
             next
-        elsif (response[pointer..pointer]=='"')
+        elsif (response[pointer]==34)	#"
             if (fsmcode&1!=0)
                 pointer+=1      #opening single quote attr, ignore dq
                 next
             end
-            fsmcode = 2 - fsmcode       #flip sq status
+            fsmcode = 2 ^ fsmcode       #flip dq status
             pointer += 1
             next
         end         
@@ -419,7 +420,7 @@ def universalTraining(response)
             startingTag = response.index('<',pointer)
             next
         end
-        if (response.downcase[pointer..pointer+7]=='!doctype')              #skip doctype declarations
+        if (response[pointer..pointer+7].casecmp('!doctype')==0)              #skip doctype declarations
             startingTag = response.index('>',pointer)               #assuming no greater than in DOCTYPE declaration.
             startingTag = response.index('<',startingTag)
             next
@@ -429,7 +430,7 @@ def universalTraining(response)
             startingTag = response.index('<',startingTag)
             next
         end
-        if (response.downcase[pointer..pointer+5] == "script")              #skip chunks of scripts
+        if (response[pointer..pointer+5].casecmp('script')==0)              #skip chunks of scripts
             pointer = findclosinggt(response,pointer)
             if (response[pointer-1..pointer-1]=='/') 
                 #self closing script tag, we don't need to worry about this.
@@ -445,7 +446,7 @@ def universalTraining(response)
         #dealing with '>' in attrs.
 	startingPointer = pointer
         pointer = findclosinggt(response,pointer)
-	if (response[startingPointer..pointer].downcase.index('specialid')!=nil)	#skip the nodes that are already marked.
+	if (response[startingPointer..pointer].index('specialId')!=nil)	#skip the nodes that are already marked.
 		startingTag = response.index('<',pointer)
 		next
 	end
@@ -456,7 +457,7 @@ def universalTraining(response)
             response = response[0..pointer-1] + " specialId = \'" + globalNodeIdCount.to_s + "\'" + response[pointer..response.length-1]
         end
         startingTag = response.index('<',pointer)
-    end   
+    end
     return response
 end
 

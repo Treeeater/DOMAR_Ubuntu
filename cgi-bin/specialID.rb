@@ -230,8 +230,44 @@ def prepareDirectory(param)
 	end
 end
 
-def extractTextPattern(trafficFile,recordFile,outputFileName)
+def makeDirectory(param)
+	if (!File.directory?(param))
+		#create the dir
+		directoryNames = param.split('/')
+		#currentDir = "/" #(linux)
+		currentDir = "" #(windows)
+		directoriesToCreate = Array.new
+		directoryNames.each{|d|
+			currentDir = currentDir + d + "/"
+			if (!File.directory? currentDir)
+				directoriesToCreate.push(currentDir)
+			end
+		}
+		directoriesToCreate.each{|d|
+			Dir.mkdir(d,0777)
+		}
+	end
+end
+
+def extractTextPattern(trafficFile,recordFile,outputFileName,recordDomain,urlStructure)
 	textPattern = Array.new
+	#automatically judge if this is a standalone page by looking at if all the urls are the same in the training data.
+	tempurl = nil
+	$standalonePage = true
+	trafficFile.each{|t|
+		if (t.index('?')==nil) then next end
+		url = t.gsub(/.*\/(.*)\?.*/,'\1')
+		if (tempurl == nil)
+			tempurl = url
+			next
+		end
+		if (tempurl!=url)
+			$standalonePage = false
+		end
+	}
+	#write this information to hard drive so that when we update the anchors, we look up the table to find if this group is a standalone group
+	makeDirectory($StandaloneDir)
+	File.open($StandaloneDir + recordDomain + ".txt","a"){|f| f.write(urlStructure+" "+$standalonePage.to_s+"\n")}
 	trafficFile.each_index{|i|
 		traffic = File.read(trafficFile[i])
 		record = File.read(recordFile[i])
