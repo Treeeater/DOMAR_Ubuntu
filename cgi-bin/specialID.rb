@@ -112,30 +112,31 @@ end
 
 def findclosinggt(response,pointer)
     fsmcode = 0         # 0 stands for no opening attr, 1 stands for opening single quote attr and 2 stands for opening double quote attr.
-    while (pointer<response.length)
-        if ((response[pointer..pointer]!='>')&&(response[pointer..pointer]!='\'')&&(response[pointer..pointer]!='"'))
+    l = response.length
+    while (pointer<l)
+        if ((response[pointer]!=62)&&(response[pointer]!=39)&&(response[pointer]!=34))
             pointer+=1
             next
-        elsif (response[pointer..pointer]=='>')
+        elsif (response[pointer]==62)	#>
             if (fsmcode == 0)
                 break
             end
             pointer+=1
             next
-        elsif (response[pointer..pointer]=='\'')
+        elsif (response[pointer]==39)	#'
             if (fsmcode&2!=0)
                 pointer+=1      #opening double quote attr, ignore sq
                 next
             end
-            fsmcode = 1 - fsmcode       #flip sq status
+            fsmcode = 1 ^ fsmcode       #flip sq status
             pointer += 1
             next
-        elsif (response[pointer..pointer]=='"')
+        elsif (response[pointer]==34)	#"
             if (fsmcode&1!=0)
                 pointer+=1      #opening single quote attr, ignore dq
                 next
             end
-            fsmcode = 2 - fsmcode       #flip sq status
+            fsmcode = 2 ^ fsmcode       #flip dq status
             pointer += 1
             next
         end         
@@ -145,30 +146,31 @@ end
 
 def findopeninglt(response,pointer)
     fsmcode = 0         # 0 stands for no opening attr, 1 stands for opening single quote attr and 2 stands for opening double quote attr.
-    while (pointer<response.length)
-        if ((response[pointer..pointer]!='<')&&(response[pointer..pointer]!='\'')&&(response[pointer..pointer]!='"'))
+    l = response.length
+    while (pointer<l)
+        if ((response[pointer]!=60)&&(response[pointer]!=39)&&(response[pointer]!=34))
             pointer-=1
             next
-        elsif (response[pointer..pointer]=='<')
+        elsif (response[pointer]==60)
             if (fsmcode == 0)
                 break
             end
             pointer-=1
             next
-        elsif (response[pointer..pointer]=='\'')
+        elsif (response[pointer]==39)
             if (fsmcode&2!=0)
                 pointer-=1      #opening double quote attr, ignore sq
                 next
             end
-            fsmcode = 1 - fsmcode       #flip sq status
+            fsmcode = 1 ^ fsmcode       #flip sq status
             pointer -= 1
             next
-        elsif (response[pointer..pointer]=='"')
+        elsif (response[pointer]==34)
             if (fsmcode&1!=0)
                 pointer-=1      #opening single quote attr, ignore dq
                 next
             end
-            fsmcode = 2 - fsmcode       #flip sq status
+            fsmcode = 2 ^ fsmcode       #flip dq status
             pointer -= 1
             next
         end         

@@ -318,7 +318,7 @@ def AdaptAnchor(domain, url, urlStructure)
 		standaloneFC.each_line{|l|
 			if (l.index(urlStructure)!=nil)
 				$standalonePage = l.gsub(/.*\s(.*)/,'\1')
-				if ($standalonePage[0]=='t') then $standalonePage = true else $standalonePage = false end
+				if ($standalonePage[0]==116) then $standalonePage = true else $standalonePage = false end
 			end
 		}
 	end
