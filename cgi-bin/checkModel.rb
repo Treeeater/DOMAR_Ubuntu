@@ -316,11 +316,11 @@ def AdaptAnchor(domain, url, urlStructure)
 	if (File.exists?($StandaloneDir + domain + ".txt"))
 		standaloneFC = File.read($StandaloneDir + domain + ".txt")
 		standaloneFC.each_line{|l|
-			if (l.index(urlStructure)!=nil)
-				$standalonePage = l.gsub(/.*\s(.*)/,'\1')
-				if ($standalonePage[0]==116) 
+			if (l.match(/#{Regexp.quote(urlStructure)}\s.*/)!=nil)
+				temp = l.chomp.gsub(/.*\s(.*)/,'\1')
+				if (temp[0]==116)
 					$standalonePage = true
-				else 
+				else
 					$standalonePage = false 
 				end
 				break
