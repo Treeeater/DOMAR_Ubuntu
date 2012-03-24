@@ -253,8 +253,8 @@ def CheckModel(record, domain, url, urlStructure, id, relative)
 					diffRTLDHandle.write(d+"\n")
 				elsif (d.match(/\A\/\/\d+.*/)!=nil)
 					#otherwise if the violation starts with a digital number, we know it's not in anchor yet. we want to consider adding it as an anchor.			
-					diffRFileHandle.write(d+"\n")
-					diffRTLDHandle.write(d+"\n")
+					diffRFileHandle.write(d)
+					diffRTLDHandle.write(d)
 					newAnchor = d.gsub(/\A\/\/(\d+)$/,'\1')			#cater //393
 					newAnchor = newAnchor.gsub(/\A\/\/(\d+?)\D.*/,'\1')		#cater //393 ,innerHTML or //393/object
 					if ((d!=newAnchor)&&(!suggestedAnchors.include?(newAnchor)))
@@ -266,7 +266,11 @@ def CheckModel(record, domain, url, urlStructure, id, relative)
 						vicinityInfo = (traffic[closinggt+1,100].gsub(/\sspecialId\s=\s\'.*?\'/,'').gsub(/[\r\n]/,''))[0..30]
 						suggestedAnchors.push(newAnchor)
 						pfh.write(tagInfo + " => " + vicinityInfo + " =|> " + url + "\n")
+						diffRFileHandle.write(" =|> " + tagInfo + " => " + vicinityInfo)
+						diffRTLDHandle.write(" =|> " + tagInfo + " => " + vicinityInfo)
 					end
+					diffRFileHandle.write("\n")
+					diffRTLDHandle.write("\n")
 				else
 					#it's gotta be a non-DOM node related access, we simply record them.
 					diffRFileHandle.write(d+"\n")
@@ -379,6 +383,12 @@ def AdaptAnchor(domain, url, urlStructure)
 				File.open(f,"w"){|fh| fh.write(content)}
 			}
 		}
+		#read all diff files into memory
+		diffFiles = Dir.glob($DiffRDir+domain+"/"+urlStructure+"/*")
+		diffFileHash = Hash.new
+		diffFiles.each{|d|
+			if (!File.directory? d) then diffFileHash[d] = File.read(d) end
+		}
 		linesToAdd.each{|l|
 			if (l.index(" => ")==nil) then next end
 			id += 1
@@ -386,6 +396,15 @@ def AdaptAnchor(domain, url, urlStructure)
 			vicinityInfo = l[l.index(" => ")+4..l.length]
 			original = original + "Tag #{id.to_s} := " + tagContent + "\n&" + vicinityInfo.chomp + "\n"
 			patchupFile.gsub!(l,'')
+			#also replace diff files with new id.
+			diffFileHash.each_key{|k|
+				#for all diff files
+				diffFileHash[k].gsub!(/\n\/\/\d+(.*?)#{Regexp.quote(" =|> " + tagContent + " => " + vicinityInfo)}\n/,"\n//id#{id}"+'\1'+"\n")
+			}
+		}
+		#flush diff file to disk.
+		diffFileHash.each_key{|k|
+			File.open(k,"w"){|fh| fh.write(diffFileHash[k])}
 		}
 		patchupFileMo = ""
 		patchupFile.each_line{|l|
