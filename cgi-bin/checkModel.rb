@@ -95,8 +95,8 @@ def CheckModel(record, domain, url, urlStructure, id, relative)
 				if (accessHashR[_tld]==nil)
 					accessHashR[_tld] = Array.new
 				end
-				if (!accessHashR[_tld].include? _whatA)
-					accessHashR[_tld].push(_whatA)
+				if (!accessHashR[_tld].include? [_whatA,_whatA])
+					accessHashR[_tld].push([_whatA,_whatA])
 				end
 			end
 		else
@@ -114,8 +114,8 @@ def CheckModel(record, domain, url, urlStructure, id, relative)
 			if (accessHashA[_tld]==nil)
 				accessHashA[_tld] = Array.new
 			end
-			if (!accessHashR[_tld].include? _whatR)
-				accessHashR[_tld].push(_whatR)
+			if (!accessHashR[_tld].include? [_whatR,_whatA])
+				accessHashR[_tld].push([_whatR,_whatA])
 			end
 			if (!accessHashA[_tld].include? _whatA)
 				accessHashA[_tld].push(_whatA)
@@ -196,21 +196,36 @@ def CheckModel(record, domain, url, urlStructure, id, relative)
 =end
 				else
 					#we have seen scripts from this domain
-					if (!policyR[tld].include? a)
-						#but the models haven't included this access
-						if (!diffArrayR.has_key? tld) 
-							diffArrayR[tld] = Array.new
-							diffArrayR[tld].push(a)
-						else 
-							diffArrayR[tld].push(a)
-						end
-						if (a.match(/\A\/\/\d+.*/)==nil)
+					if (!policyR[tld].include? a[0])&&(!policyR[tld].include? a[1])
+						if (a[0].match(/\A\/\/\d+.*/)==nil)
+							#but the models haven't included this access
+							if (!diffArrayR.has_key? tld) 
+								diffArrayR[tld] = Array.new
+								diffArrayR[tld].push(a)
+							else 
+								diffArrayR[tld].push(a)
+							end
 							#only add anchored entries to the model, if it's not an anchor yet, we just record it in diff file, not in the model.
-							File.open($PolicyRDir+domain+"/"+urlStructure+"/policies/"+tld+".txt","a"){|f| f.write(a+"\n")}		#add simple policy entry
-							historyContent += (a+"\n->Time Added:"+(Time.new.to_s)+"\n->First seen traffic:"+url+id.to_s+"\n->Time Deleted:\n->Accessed Entries:"+url+id.to_s+"\n\n")		#add policy history
+							File.open($PolicyRDir+domain+"/"+urlStructure+"/policies/"+tld+".txt","a"){|f| f.write(a[0]+"\n")}		#add simple policy entry
+							historyContent += (a[0]+"\n->Time Added:"+(Time.new.to_s)+"\n->First seen traffic:"+url+id.to_s+"\n->Time Deleted:\n->Accessed Entries:"+url+id.to_s+"\n\n")		#add policy history
+						else
+							#but the models haven't included this access
+							if (!diffArrayR.has_key? tld) 
+								diffArrayR[tld] = Array.new
+								diffArrayR[tld].push(a)
+							else 
+								diffArrayR[tld].push(a)
+							end
+							File.open($PolicyRDir+domain+"/"+urlStructure+"/policies/"+tld+".txt","a"){|f| f.write(a[1]+"\n")}		#add simple policy entry
+							historyContent += (a[1]+"\n->Time Added:"+(Time.new.to_s)+"\n->First seen traffic:"+url+id.to_s+"\n->Time Deleted:\n->Accessed Entries:"+url+id.to_s+"\n\n")		#add policy history
 						end
 					else
-						pointer = historyContent.index(a+"\n")
+						pointer = 0
+						if (policyR[tld].include? a[0]) 
+							pointer = historyContent.index(a[0]+"\n")
+						else
+							pointer = historyContent.index(a[1]+"\n")
+						end
 						pointer = historyContent.index("\n->Accessed Entries:",pointer)
 						pointer = historyContent.index("\n", pointer+2)-1
 						historyContent = historyContent[0..pointer]+" "+url+id.to_s+historyContent[pointer+1..historyContent.length]
@@ -247,17 +262,17 @@ def CheckModel(record, domain, url, urlStructure, id, relative)
 			makeDirectory($DiffRDir+domain+"/"+urlStructure+"/"+tld+"/")
 			diffRTLDHandle = File.open($DiffRDir+domain+"/"+urlStructure+"/"+tld+"/#{url}?"+id.to_s+".txt","w")
 			diffArrayR[tld].each{|d|
-				if (d.match(/\A\/\/id\d+.*/)!=nil)
+				if (d[0].match(/\A\/\/id\d+.*/)!=nil)
 					#if the violation starts with 'id', we know it's already an anchor. we simply record them.
 					diffRFileHandle.write(d+"\n")
 					diffRTLDHandle.write(d+"\n")
-				elsif (d.match(/\A\/\/\d+.*/)!=nil)
+				elsif (d[0].match(/\A\/\/\d+.*/)!=nil)
 					#otherwise if the violation starts with a digital number, we know it's not in anchor yet. we want to consider adding it as an anchor.			
-					diffRFileHandle.write(d)
-					diffRTLDHandle.write(d)
-					newAnchor = d.gsub(/\A\/\/(\d+)$/,'\1')			#cater //393
+					diffRFileHandle.write(d[1])
+					diffRTLDHandle.write(d[1])
+					newAnchor = d[0].gsub(/\A\/\/(\d+)$/,'\1')			#cater //393
 					newAnchor = newAnchor.gsub(/\A\/\/(\d+?)\D.*/,'\1')		#cater //393 ,innerHTML or //393/object
-					if ((d!=newAnchor)&&(!suggestedAnchors.include?(newAnchor)))
+					if ((d[0]!=newAnchor)&&(!suggestedAnchors.include?(newAnchor)))
 						#generate a patch info
 						attrIndex = traffic.index("specialId = '#{newAnchor}'")
 						closinggt = findclosinggt(traffic, attrIndex)
@@ -273,8 +288,8 @@ def CheckModel(record, domain, url, urlStructure, id, relative)
 					diffRTLDHandle.write("\n")
 				else
 					#it's gotta be a non-DOM node related access, we simply record them.
-					diffRFileHandle.write(d+"\n")
-					diffRTLDHandle.write(d+"\n")
+					diffRFileHandle.write(d[0]+"\n")
+					diffRTLDHandle.write(d[0]+"\n")
 				end
 			}
 			diffRFileHandle.write("------------------------\n")
@@ -399,7 +414,7 @@ def AdaptAnchor(domain, url, urlStructure)
 			#also replace diff files with new id.
 			diffFileHash.each_key{|k|
 				#for all diff files
-				diffFileHash[k].gsub!(/\n\/\/\d+(.*?)#{Regexp.quote(" =|> " + tagContent + " => " + vicinityInfo)}\n/,"\n//id#{id}"+'\1'+"\n")
+				diffFileHash[k].gsub!(/\n\/.*?#{Regexp.quote(" =|> " + tagContent + " => " + vicinityInfo)}\n/,"\n//id#{id}"+"\n")
 			}
 		}
 		#flush diff file to disk.

@@ -172,7 +172,7 @@ var getCallerInfo = function() {
 			}
 			if ((!trusted)&&(!recorded)) 
 			{
-				untrustedStack += curLine;
+				untrustedStack += curTopDomain;
 				if (curTopDomain!="javascript pseudo protocol") recordedDomains.push(curTopDomain);		//Now we ignore pseudo-protocol
 			}
 		}
