@@ -60,6 +60,7 @@ $TrainNewAnchors = true
 $DF = "/home/yuchen/success"		#debug purposes
 
 def getTLD(url)
+	url.gsub!(/^(.*?)>.*/,'\1')
 	domain = url.gsub(/.*?\/\/(.*?)\/.*/,'\1')
 	tld = domain.gsub(/.*\.(.*\..*)/,'\1')
 	return tld

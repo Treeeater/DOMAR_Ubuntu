@@ -126,7 +126,7 @@ var getCallerInfo = function() {
 		if (entireStack.length>3000) 
 		{
 			entireStack = entireStack.substr(entireStack.length-3000,entireStack.length);		//Assumes the total call stack is less than 3000 characters. avoid the situation when arguments becomes huge and regex operation virtually stalls the browser.  This could very well happen when innerHTML is changed. For example, flickr.com freezes our extension without this LOC.
-			ignored = "; stack trace > 3000 chars.";					//notify the record that this message is not complete.
+			ignored = "> stack trace is more than 3000 chars";					//notify the record that this message is not complete.
 		}
 		while (entireStack != "")
 		{
@@ -173,6 +173,7 @@ var getCallerInfo = function() {
 			if ((!trusted)&&(!recorded)) 
 			{
 				untrustedStack += curTopDomain;
+				break;												//this is ad-hoc. we do not tackle multiple third party scripts in the same stack for now.
 				if (curTopDomain!="javascript pseudo protocol") recordedDomains.push(curTopDomain);		//Now we ignore pseudo-protocol
 			}
 		}

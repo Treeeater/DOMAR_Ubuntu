@@ -15,6 +15,7 @@ class ExtractedRecords
 end
 
 def getTLD(url)
+	url.gsub!(/^(.*?)>.*/,'\1')
 	domain = url.gsub(/.*?\/\/(.*?)\/.*/,'\1')
 	tld = domain.gsub(/.*\.(.*\..*)/,'\1')
 	return tld
@@ -113,8 +114,8 @@ def extractRecordsFromTrainingData(domain, urlStructure, trainingDataIndices)
 					if (accessHashR[_tld]==nil)
 						accessHashR[_tld] = Hash.new
 					end
-					if (!accessHashR[_tld].include? _whatA)
-						accessHashR[_tld][_whatA] = {:mtime=>mTime,:id=>id}
+					if (!accessHashR[_tld].include? [_whatA,_whatA])
+						accessHashR[_tld][[_whatA,_whatA]] = {:mtime=>mTime,:id=>id}
 					end
 				end
 			else
@@ -132,8 +133,8 @@ def extractRecordsFromTrainingData(domain, urlStructure, trainingDataIndices)
 				if (accessHashA[_tld]==nil)
 					accessHashA[_tld] = Hash.new
 				end
-				if (!accessHashR[_tld].has_key? _whatR)
-					accessHashR[_tld][_whatR] = {:mtime=>mTime,:id=>id}
+				if (!accessHashR[_tld].has_key? [_whatR,_whatA])
+					accessHashR[_tld][[_whatR,_whatA]] = {:mtime=>mTime,:id=>id}
 				end
 				if (!accessHashA[_tld].has_key? _whatA)
 					accessHashA[_tld][_whatA] = {:mtime=>mTime,:id=>id}
@@ -198,9 +199,9 @@ def exportPolicy(extractedRecords, domain, urlStructure, targetDomain=nil)
 			f = File.open(pFolderR+tld+".txt","w")
 			fHistory = File.open(pFolderHistoryR+tld+".txt","w")
 			accessArrayR[tld].each_key{|xpath|
-				if (xpath =~ /\/\/\d+.*/) then next end			#ignore unanchored accesses.
-				f.puts(xpath)#+"|:=>"+accessArray[tld][xpath].to_s)
-				fHistory.puts(xpath+"\n->Time Added:"+accessArrayR[tld][xpath][:mtime].to_s+"\n->First seen traffic:"+accessArrayR[tld][xpath][:id]+"\n->Time Deleted:\n->Accessed Entries:"+accessArrayR[tld][xpath][:id]+"\n\n")
+				if (xpath[0] =~ /\/\/\d+.*/) then next end			#ignore unanchored accesses.
+				f.puts(xpath[0])#+"|:=>"+accessArray[tld][xpath].to_s)
+				fHistory.puts(xpath[0]+"\n->Time Added:"+accessArrayR[tld][xpath][:mtime].to_s+"\n->First seen traffic:"+accessArrayR[tld][xpath][:id]+"\n->Time Deleted:\n->Accessed Entries:"+accessArrayR[tld][xpath][:id]+"\n\n")
 			}
 			f.close()
 			fHistory.close()
@@ -210,9 +211,12 @@ def exportPolicy(extractedRecords, domain, urlStructure, targetDomain=nil)
 			f = File.open(pFolderR+targetDomain+".txt","w")
 			fHistory = File.open(pFolderHistoryR+targetDomain+".txt","w")
 			accessArrayR[targetDomain].each_key{|xpath|
-				if (xpath =~ /\/\/\d+.*/) then next end			#ignore unanchored accesses.
-				f.puts(xpath)
-				fHistory.puts(xpath+"\n->Time Added:"+accessArrayR[targetDomain][xpath][:mtime].to_s+"\n->First seen traffic:"+accessArrayR[targetDomain][xpath][:id]+"\n->Time Deleted:\n->Accessed Entries:"+accessArrayR[targetDomain][xpath][:id]+"\n\n")
+				if (xpath[0] =~ /\/\/\d+.*/)
+					f.puts(xpath[0] + " ==> " + xpath[1])
+				else			
+					f.puts(xpath[0])
+					fHistory.puts(xpath[0]+"\n->Time Added:"+accessArrayR[targetDomain][xpath][:mtime].to_s+"\n->First seen traffic:"+accessArrayR[targetDomain][xpath][:id]+"\n->Time Deleted:\n->Accessed Entries:"+accessArrayR[targetDomain][xpath][:id]+"\n\n")
+				end
 			}
 			f.close()
 			fHistory.close()

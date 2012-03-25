@@ -3,6 +3,7 @@ require 'fileutils'
 require 'specialID'
 
 def getTLD(url)
+	url.gsub!(/^(.*?)>.*/,'\1')
 	domain = url.gsub(/.*?\/\/(.*?)\/.*/,'\1')
 	tld = domain.gsub(/.*\.(.*\..*)/,'\1')
 	return tld
@@ -44,7 +45,10 @@ def ExtractPolicyFromFile(rootDir, domain, url)
 		end
 		policyContent = File.read(f)
 		policyContent.each_line {|l|
-			policy[currentDomain].push(l.chomp)
+			l = l.chomp
+			if (l.index(" =|> ")!=nil) then l = l[0..l.index(" =|> ")-1] end
+			if (l.index(" ==> ")!=nil) then l = l[l.index(" ==> ")+5..-1] end
+			policy[currentDomain].push(l)
 		}
 	}
 	return policy
@@ -125,37 +129,17 @@ def CheckModel(record, domain, url, urlStructure, id, relative)
 	#done extracting accessHash from current record
 	recordedTLD = Hash.new
 	accessHashA.each_key{|tld|
-		historyContent = ""
-		if (File.exists?($PolicyADir+domain+"/"+urlStructure+"/histories/"+tld+".txt")) then historyContent = File.read($PolicyADir+domain+"/"+urlStructure+"/histories/"+tld+".txt") end
+		#historyContent = ""
+		#makeDirectory($PolicyADir+domain+"/"+urlStructure+"/histories/")
+		#if (File.exists?($PolicyADir+domain+"/"+urlStructure+"/histories/"+tld+".txt")) then historyContent = File.read($PolicyADir+domain+"/"+urlStructure+"/histories/"+tld+".txt") end
 		accessHashA[tld].each{|a|
 			if (!policyA.has_key? tld)
 				#haven't seen any scripts from this domain before, now we do not record a diff file for this, we just record it in model suggestion.
-=begin
 				if (!diffArrayA.has_key? tld) 
 					diffArrayA[tld] = Array.new
 					diffArrayA[tld].push(a)
 				else 
 					diffArrayA[tld].push(a)
-				end
-=end
-				#we also want to record this in a model suggestion file (works for both absolute and relative)
-				if (!recordedTLD.has_key? tld)
-					makeDirectory($PolicyADir+domain+"/"+urlStructure+"/list/")
-					File.open($PolicyADir+domain+"/"+urlStructure+"/list/"+tld,'a'){|f| f.write($RecordDir+domain+"/"+urlStructure+"/"+url+"?"+id+".txt\n")}
-					recordedTLD[tld]=true
-					#we want to check if we can can build a model for this domain
-					list = File.read($PolicyADir+domain+"/"+urlStructure+"/list/"+tld)
-					lineNo = 0
-					trainingDataFiles = Array.new
-					list.each_line{|l|
-						trainingDataFiles.push(l.chomp)
-						lineNo+=1
-					}
-					if (lineNo>=$ModelThreshold)
-						#we want to build the model for this domain
-						BuildModel(domain, urlStructure, tld, trainingDataFiles)		#build model actually builds two models, one for absolute one for relative
-						#File.delete($PolicyRDir+domain+"/"+url+"/LIST_"+tld)
-					end
 				end
 			else
 				#we have seen scripts from this domain
@@ -167,85 +151,75 @@ def CheckModel(record, domain, url, urlStructure, id, relative)
 					else 
 						diffArrayA[tld].push(a)
 					end
-					File.open($PolicyADir+domain+"/"+urlStructure+"/policies/"+tld+".txt","a"){|f| f.write(a+"\n")}		#add simple policy entry
-					historyContent += (a+"\n->Time Added:"+(Time.new.to_s)+"\n->First seen traffic:"+url+id.to_s+"\n->Time Deleted:\n->Accessed Entries:"+url+id.to_s+"\n\n")				#add policy history
+					
 				else
-					pointer = historyContent.index(a+"\n")
-					pointer = historyContent.index("\n->Accessed Entries:",pointer)
-					pointer = historyContent.index("\n", pointer+2)-1
-					historyContent = historyContent[0..pointer]+" "+url+id.to_s+historyContent[pointer+1..historyContent.length]
+					#pointer = historyContent.index(a+"\n")
+					#pointer = historyContent.index("\n->Accessed Entries:",pointer)
+					#pointer = historyContent.index("\n", pointer+2)-1
+					#historyContent = historyContent[0..pointer]+" "+url+id.to_s+historyContent[pointer+1..historyContent.length]
 				end
 			end
 		}
-		if (historyContent !="") then File.open($PolicyADir+domain+"/"+urlStructure+"/histories/"+tld+".txt","w") {|f| f.write(historyContent)} end
+		#if (historyContent !="") then File.open($PolicyADir+domain+"/"+urlStructure+"/histories/"+tld+".txt","w") {|f| f.write(historyContent)} end
 	}
 	if (relative)
 		accessHashR.each_key{|tld|
-			historyContent = ""
-			if (File.exists?($PolicyRDir+domain+"/"+urlStructure+"/histories/"+tld+".txt")) then historyContent = File.read($PolicyRDir+domain+"/"+urlStructure+"/histories/"+tld+".txt") end
+			#historyContent = ""
+			#makeDirectory($PolicyRDir+domain+"/"+urlStructure+"/histories/")
+			#if (File.exists?($PolicyRDir+domain+"/"+urlStructure+"/histories/"+tld+".txt")) then historyContent = File.read($PolicyRDir+domain+"/"+urlStructure+"/histories/"+tld+".txt") end
 			accessHashR[tld].each{|a|
 				if (!policyR.has_key? tld)
 					#haven't seen any scripts from this domain before, currently we don't do anything until a model is built (within a few accesses)
-=begin
 					if (!diffArrayR.has_key? tld) 
 						diffArrayR[tld] = Array.new
 						diffArrayR[tld].push(a)
 					else 
 						diffArrayR[tld].push(a)
 					end
-=end
 				else
 					#we have seen scripts from this domain
 					if (!policyR[tld].include? a[0])&&(!policyR[tld].include? a[1])
-						if (a[0].match(/\A\/\/\d+.*/)==nil)
-							#but the models haven't included this access
-							if (!diffArrayR.has_key? tld) 
-								diffArrayR[tld] = Array.new
-								diffArrayR[tld].push(a)
-							else 
-								diffArrayR[tld].push(a)
-							end
-							#only add anchored entries to the model, if it's not an anchor yet, we just record it in diff file, not in the model.
-							File.open($PolicyRDir+domain+"/"+urlStructure+"/policies/"+tld+".txt","a"){|f| f.write(a[0]+"\n")}		#add simple policy entry
-							historyContent += (a[0]+"\n->Time Added:"+(Time.new.to_s)+"\n->First seen traffic:"+url+id.to_s+"\n->Time Deleted:\n->Accessed Entries:"+url+id.to_s+"\n\n")		#add policy history
-						else
-							#but the models haven't included this access
-							if (!diffArrayR.has_key? tld) 
-								diffArrayR[tld] = Array.new
-								diffArrayR[tld].push(a)
-							else 
-								diffArrayR[tld].push(a)
-							end
-							File.open($PolicyRDir+domain+"/"+urlStructure+"/policies/"+tld+".txt","a"){|f| f.write(a[1]+"\n")}		#add simple policy entry
-							historyContent += (a[1]+"\n->Time Added:"+(Time.new.to_s)+"\n->First seen traffic:"+url+id.to_s+"\n->Time Deleted:\n->Accessed Entries:"+url+id.to_s+"\n\n")		#add policy history
+						#but the models haven't included this access
+						if (!diffArrayR.has_key? tld) 
+							diffArrayR[tld] = Array.new
+							diffArrayR[tld].push(a)
+						else 
+							diffArrayR[tld].push(a)
 						end
 					else
 						pointer = 0
 						if (policyR[tld].include? a[0]) 
-							pointer = historyContent.index(a[0]+"\n")
+							#pointer = historyContent.index(a[0]+"\n")
 						else
-							pointer = historyContent.index(a[1]+"\n")
+							#pointer = historyContent.index(a[1]+"\n")
 						end
-						pointer = historyContent.index("\n->Accessed Entries:",pointer)
-						pointer = historyContent.index("\n", pointer+2)-1
-						historyContent = historyContent[0..pointer]+" "+url+id.to_s+historyContent[pointer+1..historyContent.length]
+						#pointer = historyContent.index("\n->Accessed Entries:",pointer)
+						#pointer = historyContent.index("\n", pointer+2)-1
+						#historyContent = historyContent[0..pointer]+" "+url+id.to_s+historyContent[pointer+1..historyContent.length]
 					end
 				end
 			}
-			if (historyContent !="") then File.open($PolicyRDir+domain+"/"+urlStructure+"/histories/"+tld+".txt","w") {|f| f.write(historyContent)} end
+			#if (historyContent !="") then File.open($PolicyRDir+domain+"/"+urlStructure+"/histories/"+tld+".txt","w") {|f| f.write(historyContent)} end
 		}
 	end
 	if (!diffArrayA.empty?)
 		makeDirectory($DiffADir+domain+"/"+urlStructure+"/")
 		diffAFileHandle = File.open($DiffADir+domain+"/"+urlStructure+"/#{url}?"+id.to_s+".txt","w")
 		diffArrayA.each_key{|tld|
+			#historyContent = ""
+			#if (File.exists?($PolicyADir+domain+"/"+urlStructure+"/histories/"+tld+".txt")) then historyContent = File.read($PolicyADir+domain+"/"+urlStructure+"/histories/"+tld+".txt") end
 			makeDirectory($DiffADir+domain+"/"+urlStructure+"/"+tld+"/")
 			diffATLDHandle = File.open($DiffADir+domain+"/"+urlStructure+"/"+tld+"/#{url}?"+id.to_s+".txt","w")
 			diffAFileHandle.write(tld+"\n")
+			ph = File.open($PolicyADir+domain+"/"+urlStructure+"/policies/"+tld+".txt","a")
 			diffArrayA[tld].each{|d|
+				ph.write(d+"\n")		#add simple policy entry
+				#historyContent += (d+"\n->Time Added:"+(Time.new.to_s)+"\n->First seen traffic:"+url+id.to_s+"\n->Time Deleted:\n->Accessed Entries:"+url+id.to_s+"\n\n")		#add policy history
 				diffAFileHandle.write(d+"\n")
 				diffATLDHandle.write(d+"\n")
 			}
+			ph.close()
+			#if (historyContent !="") then File.open($PolicyADir+domain+"/"+urlStructure+"/histories/"+tld+".txt","w") {|f| f.write(historyContent)} end
 			diffAFileHandle.write("------------------------\n")
 			diffATLDHandle.close()
 		}
@@ -258,42 +232,56 @@ def CheckModel(record, domain, url, urlStructure, id, relative)
 		pfh = File.open($SpecialIdDir+domain+"/"+urlStructure+"/patchup.txt","a")
 		traffic = File.read($TrafficDir+domain+"/"+urlStructure+"/"+url+"?"+id.to_s+".txt")
 		diffArrayR.each_key{|tld|
+			#historyContent = ""
+			#if (File.exists?($PolicyRDir+domain+"/"+urlStructure+"/histories/"+tld+".txt")) then historyContent = File.read($PolicyRDir+domain+"/"+urlStructure+"/histories/"+tld+".txt") end
 			diffRFileHandle.write(tld+"\n")
 			makeDirectory($DiffRDir+domain+"/"+urlStructure+"/"+tld+"/")
 			diffRTLDHandle = File.open($DiffRDir+domain+"/"+urlStructure+"/"+tld+"/#{url}?"+id.to_s+".txt","w")
+			policyRFH = File.open($PolicyRDir+domain+"/"+urlStructure+"/policies/"+tld+".txt","a")
 			diffArrayR[tld].each{|d|
 				if (d[0].match(/\A\/\/id\d+.*/)!=nil)
 					#if the violation starts with 'id', we know it's already an anchor. we simply record them.
-					diffRFileHandle.write(d+"\n")
-					diffRTLDHandle.write(d+"\n")
+					diffRFileHandle.write(d[0]+"\n")
+					diffRTLDHandle.write(d[0]+"\n")
+					#only add anchored entries to the model, if it's not an anchor yet, we just record it in diff file, not in the model.
+					policyRFH.write(d[0]+"\n")		#add simple policy entry
+					#historyContent += (d[0]+"\n->Time Added:"+(Time.new.to_s)+"\n->First seen traffic:"+url+id.to_s+"\n->Time Deleted:\n->Accessed Entries:"+url+id.to_s+"\n\n")		#add policy history
 				elsif (d[0].match(/\A\/\/\d+.*/)!=nil)
 					#otherwise if the violation starts with a digital number, we know it's not in anchor yet. we want to consider adding it as an anchor.			
-					diffRFileHandle.write(d[1])
-					diffRTLDHandle.write(d[1])
+					diffRFileHandle.write(d[0] + " ==> " + d[1])
+					diffRTLDHandle.write(d[0] + " ==> " + d[1])
 					newAnchor = d[0].gsub(/\A\/\/(\d+)$/,'\1')			#cater //393
 					newAnchor = newAnchor.gsub(/\A\/\/(\d+?)\D.*/,'\1')		#cater //393 ,innerHTML or //393/object
-					if ((d[0]!=newAnchor)&&(!suggestedAnchors.include?(newAnchor)))
+					if (d[0]!=newAnchor)
 						#generate a patch info
 						attrIndex = traffic.index("specialId = '#{newAnchor}'")
 						closinggt = findclosinggt(traffic, attrIndex)
 						openinglt = findopeninglt(traffic, attrIndex)
 						tagInfo = traffic[openinglt..closinggt].gsub(/\sspecialId\s=\s\'.*?\'/,'')
 						vicinityInfo = (traffic[closinggt+1,100].gsub(/\sspecialId\s=\s\'.*?\'/,'').gsub(/[\r\n]/,''))[0..30]
-						suggestedAnchors.push(newAnchor)
-						pfh.write(tagInfo + " => " + vicinityInfo + " =|> " + url + "\n")
 						diffRFileHandle.write(" =|> " + tagInfo + " => " + vicinityInfo)
 						diffRTLDHandle.write(" =|> " + tagInfo + " => " + vicinityInfo)
+						policyRFH.write(d[0]+" ==> "+d[1]+" =|> " + tagInfo + " => " + vicinityInfo +"\n")		#add simple policy entry
+						#historyContent += (d[1]+"\n->Time Added:"+(Time.new.to_s)+"\n->First seen traffic:"+url+id.to_s+"\n->Time Deleted:\n->Accessed Entries:"+url+id.to_s+"\n\n")		#add policy history
+						if (!suggestedAnchors.include?(newAnchor))
+							pfh.write(tagInfo + " => " + vicinityInfo + " =|> " + url + "\n")
+						end
+						suggestedAnchors.push(newAnchor)
 					end
 					diffRFileHandle.write("\n")
 					diffRTLDHandle.write("\n")
 				else
 					#it's gotta be a non-DOM node related access, we simply record them.
+					policyRFH.write(d[0]+"\n")
 					diffRFileHandle.write(d[0]+"\n")
 					diffRTLDHandle.write(d[0]+"\n")
+					#historyContent += (d[0]+"\n->Time Added:"+(Time.new.to_s)+"\n->First seen traffic:"+url+id.to_s+"\n->Time Deleted:\n->Accessed Entries:"+url+id.to_s+"\n\n")		#add policy history
 				end
 			}
+			policyRFH.close()
 			diffRFileHandle.write("------------------------\n")
 			diffRTLDHandle.close()
+			#if (historyContent !="") then File.open($PolicyRDir+domain+"/"+urlStructure+"/histories/"+tld+".txt","w") {|f| f.write(historyContent)} end
 		}
 		diffRFileHandle.close()
 		pfh.close()
@@ -404,6 +392,12 @@ def AdaptAnchor(domain, url, urlStructure)
 		diffFiles.each{|d|
 			if (!File.directory? d) then diffFileHash[d] = File.read(d) end
 		}
+		#read all policy files into memory
+		policyFiles = Dir.glob($PolicyRDir+domain+"/"+urlStructure+"/policies/*")
+		policyFileHash = Hash.new
+		policyFiles.each{|d|
+			if (!File.directory? d) then policyFileHash[d] = File.read(d) end
+		}
 		linesToAdd.each{|l|
 			if (l.index(" => ")==nil) then next end
 			id += 1
@@ -413,13 +407,35 @@ def AdaptAnchor(domain, url, urlStructure)
 			patchupFile.gsub!(l,'')
 			#also replace diff files with new id.
 			diffFileHash.each_key{|k|
-				#for all diff files
-				diffFileHash[k].gsub!(/\n\/.*?#{Regexp.quote(" =|> " + tagContent + " => " + vicinityInfo)}\n/,"\n//id#{id}"+"\n")
+				#for each diff file
+				diffFileHash[k].gsub!(/\n\/\/\d+(.*?)\s==>.*?#{Regexp.quote(" =|> " + tagContent + " => " + vicinityInfo)}/,"\n//id#{id}"+'\1')
+			}
+			policyFileHash.each_key{|k|
+				#for each policy file
+				policyFileHash[k].gsub!(/\n\/\/\d+(.*?)\s==>.*?#{Regexp.quote(" =|> " + tagContent + " => " + vicinityInfo)}/,"\n//id#{id}"+'\1')
 			}
 		}
 		#flush diff file to disk.
 		diffFileHash.each_key{|k|
-			File.open(k,"w"){|fh| fh.write(diffFileHash[k])}
+			#uniq the lines
+			temp = Array.new
+			diffFileHash[k].each_line{|l|
+				temp.push(l)
+			}
+			temp.uniq!
+			towrite = temp.join()
+			File.open(k,"w"){|fh| fh.write(towrite)}
+		}
+		#flush policy file to disk.
+		policyFileHash.each_key{|k|
+			#uniq the lines
+			temp = Array.new
+			policyFileHash[k].each_line{|l|
+				temp.push(l)
+			}
+			temp.uniq!
+			towrite = temp.join()
+			File.open(k,"w"){|fh| fh.write(towrite)}
 		}
 		patchupFileMo = ""
 		patchupFile.each_line{|l|
