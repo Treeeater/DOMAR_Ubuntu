@@ -186,7 +186,7 @@ def learnTextPattern(traffic, specialIds, textPattern, srcURL)
 			closinggt = findclosinggt(traffic, attrIndex)
 			openinglt = findopeninglt(traffic, attrIndex)
 			tagInfo = traffic[openinglt..closinggt].gsub(/\sspecialId\s=\s\'.*?\'/,'')
-			vicinityInfo = (traffic[closinggt+1,100].gsub(/\sspecialId\s=\s\'.*?\'/,'').gsub(/[\r\n]/,''))[0..30]
+			vicinityInfo = (traffic[closinggt+1,100].gsub(/\sspecialId\s=\s\'.*?\'/,'').gsub(/[\r\n]/,''))[0..$AnchorLength]
 			if ($standalonePage)
 				if (!textPattern.include?([tagInfo, vicinityInfo]))
 					textPattern.push([tagInfo, vicinityInfo])

@@ -258,7 +258,7 @@ def CheckModel(record, domain, url, urlStructure, id, relative)
 						closinggt = findclosinggt(traffic, attrIndex)
 						openinglt = findopeninglt(traffic, attrIndex)
 						tagInfo = traffic[openinglt..closinggt].gsub(/\sspecialId\s=\s\'.*?\'/,'')
-						vicinityInfo = (traffic[closinggt+1,100].gsub(/\sspecialId\s=\s\'.*?\'/,'').gsub(/[\r\n]/,''))[0..30]
+						vicinityInfo = (traffic[closinggt+1,100].gsub(/\sspecialId\s=\s\'.*?\'/,'').gsub(/[\r\n]/,''))[0..$AnchorLength]
 						diffRFileHandle.write(" =|> " + tagInfo + " => " + vicinityInfo)
 						diffRTLDHandle.write(" =|> " + tagInfo + " => " + vicinityInfo)
 						policyRFH.write(d[0]+" ==> "+d[1]+" =|> " + tagInfo + " => " + vicinityInfo +"\n")		#add simple policy entry

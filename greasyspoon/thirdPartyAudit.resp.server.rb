@@ -56,6 +56,7 @@ $TrafficDir = "#{$HomeFolder}/Desktop/DOMAR/traffic/"
 $AnchorErrorDir = "#{$HomeFolder}/Desktop/DOMAR/anchorErrors/"
 $ModelThreshold = 100
 $AnchorThreshold = 50
+$AnchorLength = 50
 $TrainNewAnchors = true
 $DF = "/home/yuchen/success"		#debug purposes
 
@@ -284,7 +285,7 @@ def convertResponse(response, textPattern, url, filecnt, urlStructure)
 			while (i<matchpoints.size)
 				matches = true
 				listToAdd[id] = (listToAdd[id]==nil) ? Array.new([matchpoints[i]+toMatch.length-1]) : listToAdd[id].push(matchpoints[i]+toMatch.length-1)
-				vicinityInfo = (response[matchpoints[i]+toMatch.length,100].gsub(/[\r\n]/,''))[0..30]
+				vicinityInfo = (response[matchpoints[i]+toMatch.length,100].gsub(/[\r\n]/,''))[0..$AnchorLength]
 				vicinityList[id] = (vicinityList[id]==nil) ? Array.new([vicinityInfo]) : vicinityList[id].push(vicinityInfo)
 				i+=1
 			end
@@ -397,20 +398,19 @@ def convertResponse(response, textPattern, url, filecnt, urlStructure)
 	if (needToCheckPatchDown) then File.open($SpecialIdDir+sanitizedhost+"/"+urlStructure+"/patchdown.txt","w"){|f| f.write(modifiedContent)} end
 	#p vicinityList
 	#p recordedVicinity	
-=begin
 	if (error)
 		logfh = File.open("/home/yuchen/errorlog.txt","a")
 		logfh.write("error when converting url: #{url}, id: #{filecnt}.\n")
 		logfh.write(errormsg)
 		logfh.close
 	end
-=end
 	return response
 end
 
 def universalTraining(response)
     globalNodeIdCount = 0
     pointer = 0
+    heuristics = true
     startingTag = response.index('<',pointer)
     while (startingTag!=nil)
         pointer = startingTag+1
@@ -443,6 +443,56 @@ def universalTraining(response)
             startingTag = response.index('<',pointer)
             next
         end
+	#heuristics to add html, head, title and body as id100000 id200000 id300000 and id400000
+	#there should be only one of these tags existing in a webpage. (assumption)
+	if (heuristics)
+		if (response[pointer..pointer+3].casecmp('html')==0)
+			startingPointer = pointer
+			pointer = findclosinggt(response,pointer)
+			if (response[pointer-1..pointer-1]=='/') 
+				response = response[0..pointer-2] + " specialId = \'id100000\'" + response[pointer-1..-1]
+			else
+				response = response[0..pointer-1] + " specialId = \'id100000\'" + response[pointer..-1]
+			end
+			startingTag = response.index('<',pointer)
+			next
+		end
+		if (response[pointer..pointer+3].casecmp('head')==0)
+			startingPointer = pointer
+			pointer = findclosinggt(response,pointer)
+			if (response[pointer-1..pointer-1]=='/') 
+				response = response[0..pointer-2] + " specialId = \'id200000\'" + response[pointer-1..-1]
+			else
+				response = response[0..pointer-1] + " specialId = \'id200000\'" + response[pointer..-1]
+			end
+			startingTag = response.index('<',pointer)
+			next
+		end
+		if (response[pointer..pointer+4].casecmp('title')==0)
+			startingPointer = pointer
+			pointer = findclosinggt(response,pointer)
+			if (response[pointer-1..pointer-1]=='/') 
+				response = response[0..pointer-2] + " specialId = \'id300000\'" + response[pointer-1..-1]
+			else
+				response = response[0..pointer-1] + " specialId = \'id300000\'" + response[pointer..-1]
+			end
+			startingTag = response.index('<',pointer)
+			next
+		end
+		if (response[pointer..pointer+3].casecmp('body')==0)
+			startingPointer = pointer
+			pointer = findclosinggt(response,pointer)
+			if (response[pointer-1..pointer-1]=='/') 
+				response = response[0..pointer-2] + " specialId = \'id400000\'" + response[pointer-1..-1]
+			else
+				response = response[0..pointer-1] + " specialId = \'id400000\'" + response[pointer..-1]
+			end
+			startingTag = response.index('<',pointer)
+			heurstics = false		#faster performance
+			next
+		end
+	end
+	#end heuristics
         #we need to add special attrs, now we should find the closing greater than for this opening tag.
         #dealing with '>' in attrs.
 	startingPointer = pointer
