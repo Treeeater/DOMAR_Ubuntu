@@ -55,8 +55,9 @@ $SpecialIdDir = "#{$HomeFolder}/Desktop/DOMAR/specialID/"
 $TrafficDir = "#{$HomeFolder}/Desktop/DOMAR/traffic/"
 $AnchorErrorDir = "#{$HomeFolder}/Desktop/DOMAR/anchorErrors/"
 $ModelThreshold = 100
-$AnchorThreshold = 50
-$AnchorLength = 50
+$AnchorThreshold = 20
+$AnchorLength = 30
+$MaxAnchorVicinityLength = 200
 $TrainNewAnchors = true
 $DF = "/home/yuchen/success"		#debug purposes
 
@@ -227,7 +228,7 @@ def collectTextPattern(url,host)
 end
 
 def approxmatching(a,b)
-	return (a==b)
+	return (a.index(b)==0)
 end
 
 def convertResponse(response, textPattern, url, filecnt, urlStructure)
@@ -253,12 +254,11 @@ def convertResponse(response, textPattern, url, filecnt, urlStructure)
 		processedNodes[id]=thisinfo
 		toMatch = thisinfo.gsub(/.*?\{zyczyc\{Tag\s\d+\s:=\s(.*?)\}zyczyc\{.*/m,'\1')
 		matchpoints = response.enum_for(:scan,toMatch).map{Regexp.last_match.begin(0)}
-		File.open($DF,"a"){|f| f.write(toMatch + "||number||" + matchpoints.size.to_s+"\n")}
 		i = 0
 		while (i<matchpoints.size)
 			matches = true
 			listToAdd[id] = (listToAdd[id]==nil) ? Array.new([matchpoints[i]+toMatch.length-1]) : listToAdd[id].push(matchpoints[i]+toMatch.length-1)
-			vicinityInfo = (response[matchpoints[i]+toMatch.length,100].gsub(/[\r\n]/,''))[0..$AnchorLength]
+			vicinityInfo = (response[matchpoints[i]+toMatch.length,$AnchorLength+$MaxAnchorVicinityLength+50])[0..$AnchorLength+$MaxAnchorVicinityLength]
 			vicinityList[id] = (vicinityList[id]==nil) ? Array.new([vicinityInfo]) : vicinityList[id].push(vicinityInfo)
 			i+=1
 		end
@@ -275,6 +275,7 @@ def convertResponse(response, textPattern, url, filecnt, urlStructure)
 			candidates = Array.new
 			candidatesVicinity = Array.new
 			vicinityList[id].each_index{|i|
+				#File.open($DF,"a"){|f| f.write(vicinityList[id][i] + "||number||" + recordedVicinity[id]+"\n------------\n")}
 				if (approxmatching(vicinityList[id][i],recordedVicinity[id]))
 					candidates.push(listToAdd[id][i])
 					candidatesVicinity.push(vicinityList[id][i])

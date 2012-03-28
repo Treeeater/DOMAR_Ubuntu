@@ -231,6 +231,7 @@ def CheckModel(record, domain, url, urlStructure, id, relative)
 		diffRFileHandle = File.open($DiffRDir+domain+"/"+urlStructure+"/#{url}?"+id.to_s+".txt","w")
 		pfh = File.open($SpecialIdDir+domain+"/"+urlStructure+"/patchup.txt","a")
 		traffic = File.read($TrafficDir+domain+"/"+urlStructure+"/"+url+"?"+id.to_s+".txt")
+		originalTraffic = traffic.gsub(/\sspecialId\s=\s\'.*?\'/,'')
 		diffArrayR.each_key{|tld|
 			#historyContent = ""
 			#if (File.exists?($PolicyRDir+domain+"/"+urlStructure+"/histories/"+tld+".txt")) then historyContent = File.read($PolicyRDir+domain+"/"+urlStructure+"/histories/"+tld+".txt") end
@@ -257,11 +258,22 @@ def CheckModel(record, domain, url, urlStructure, id, relative)
 						attrIndex = traffic.index("specialId = '#{newAnchor}'")
 						closinggt = findclosinggt(traffic, attrIndex)
 						openinglt = findopeninglt(traffic, attrIndex)
-						tagInfo = traffic[openinglt..closinggt].gsub(/\sspecialId\s=\s\'.*?\'/,'').gsub(/[\r\n]/,'')
-						vicinityInfo = (traffic[closinggt+1,100].gsub(/\sspecialId\s=\s\'.*?\'/,'').gsub(/[\r\n]/,''))[0..$AnchorLength]
-						diffRFileHandle.write(" =|> " + tagInfo + " => " + vicinityInfo)
-						diffRTLDHandle.write(" =|> " + tagInfo + " => " + vicinityInfo)
-						policyRFH.write(d[0]+" ==> "+d[1]+" =|> " + tagInfo + " => " + vicinityInfo +"\n")		#add simple policy entry
+						tagInfo = traffic[openinglt..closinggt].gsub(/\sspecialId\s=\s\'.*?\'/,'')
+						vicinityInfo = (traffic[closinggt+1,100].gsub(/\sspecialId\s=\s\'.*?\'/,''))[0..$AnchorLength]
+
+						#ensure our vicinity feature length is long enough to distinguish between similar vicinities.
+						matchpoints = originalTraffic.enum_for(:scan,tagInfo+vicinityInfo).map{Regexp.last_match.begin(0)}
+						currentExtraLength = 0
+						while (matchpoints.size>1)
+							currentExtraLength += 10
+							if (currentExtraLength>$MaxAnchorVicinityLength) then break end		#bail out
+							vicinityInfo = (traffic[closinggt+1,100].gsub(/\sspecialId\s=\s\'.*?\'/,'').gsub(/[\r\n]/,''))[0..$AnchorLength+currentExtraLength]
+							matchpoints = originalTraffic.enum_for(:scan,tagInfo+vicinityInfo).map{Regexp.last_match.begin(0)}
+						end
+
+						diffRFileHandle.write(" =|> " + tagInfo.gsub(/[\r\n]/,'') + " => " + vicinityInfo.gsub(/[\r\n]/,''))
+						diffRTLDHandle.write(" =|> " + tagInfo.gsub(/[\r\n]/,'') + " => " + vicinityInfo.gsub(/[\r\n]/,''))
+						policyRFH.write(d[0]+" ==> "+d[1]+" =|> " + tagInfo.gsub(/[\r\n]/,'') + " => " + vicinityInfo.gsub(/[\r\n]/,'') +"\n")		#add simple policy entry
 						#historyContent += (d[1]+"\n->Time Added:"+(Time.new.to_s)+"\n->First seen traffic:"+url+id.to_s+"\n->Time Deleted:\n->Accessed Entries:"+url+id.to_s+"\n\n")		#add policy history
 						if (!suggestedAnchors.include?(newAnchor))
 							pfh.write("{zyczyc{" + tagInfo + "}zyczyc{" + vicinityInfo + "}zyczyc}" + url + "{zyczyc}\n")
@@ -369,9 +381,9 @@ def AdaptAnchor(domain, url, urlStructure)
 		}
 		oldAFH = File.open($SpecialIdDir+domain+"/"+urlStructure+"/oldAnchors.txt","a")
 		linesToDelete.each{|l|
-			oldAFH.write(l)
-			original.gsub!(/#{Regexp.quote(l)}/,'')
-			patchdownFile.gsub!(l,'')
+			#oldAFH.write(l)
+			original.gsub!(/#{Regexp.quote(l)}/m,'')
+			patchdownFile.gsub!(/#{Regexp.quote(l)}/m,'')
 =begin
 			#delete all model entries associated with this anchor.
 			Dir.glob($PolicyRDir+domain+"/"+urlStructure+"/policies/*"){|f|
@@ -419,15 +431,15 @@ def AdaptAnchor(domain, url, urlStructure)
 			original = original + "{zyczyc{Tag #{id} := " + l
 			tagContent = l.gsub(/^(.*?)\}zyczyc\{.*/m,'\1')
 			vicinityInfo = l.gsub(/.*\}zyczyc\{(.*?)\}zyczyc\}.*/m,'\1')
-			#File.open($DF,"a"){|f| f.write(tagContent+" "+vicinityInfo+"\n")}
+			
 			#also replace diff files with new id.
 			diffFileHash.each_key{|k|
 				#for each diff file
-				diffFileHash[k].gsub!(/\n\/\/\d+(.*?)\s==>.*?#{Regexp.quote(" =|> " + tagContent + " => " + vicinityInfo)}/,"\n//id#{id}"+'\1')
+				diffFileHash[k].gsub!(/\n\/\/\d+(.*?)\s==>.*?#{Regexp.quote(" =|> " + tagContent.gsub(/[\r\n]/,'') + " => " + vicinityInfo.gsub(/[\r\n]/,''))}/,"\n//id#{id}"+'\1')
 			}
 			policyFileHash.each_key{|k|
 				#for each policy file
-				policyFileHash[k].gsub!(/\n\/\/\d+(.*?)\s==>.*?#{Regexp.quote(" =|> " + tagContent + " => " + vicinityInfo)}/,"\n//id#{id}"+'\1')
+				policyFileHash[k].gsub!(/\n\/\/\d+(.*?)\s==>.*?#{Regexp.quote(" =|> " + tagContent.gsub(/[\r\n]/,'') + " => " + vicinityInfo.gsub(/[\r\n]/,''))}/,"\n//id#{id}"+'\1')
 			}
 		}
 		#flush diff file to disk.
@@ -452,20 +464,17 @@ def AdaptAnchor(domain, url, urlStructure)
 			towrite = temp.join()
 			File.open(k,"w"){|fh| fh.write(towrite)}
 		}
-		patchupFileMo = ""
-		patchupFile.each_line{|l|
-			add = true
-			linesToAdd.each{|ll|
-				if (l.index(ll.chomp)!=nil)
-					add = false
-					break
-				end
-			}
-			if add then patchupFileMo = patchupFileMo + l end
+		linesToAdd.each{|l|
+			startingPoint = patchupFile.index("{zyczyc{"+l.chomp)
+			while (startingPoint!=nil)
+				endPoint = patchupFile.index("{zyczyc}\n",startingPoint)
+				if startingPoint==0 then patchupFile = patchupFile[endPoint+9..-1] else patchupFile = patchupFile[0..startingPoint-1]+patchupFile[endPoint+9..-1] end
+				startingPoint = patchupFile.index("{zyczyc{"+l.chomp)
+			end
 		}
 		File.open($SpecialIdDir+domain+"/"+urlStructure+"/"+urlStructure+".txt","w"){|f| f.write(original)}		#change the anchors de facto
 		#we have changed anchors, we need to remove patch recommendations as well.
 		File.open($SpecialIdDir+domain+"/"+urlStructure+"/patchdown.txt","w"){|f| f.write(patchdownFile)}		#change the patchdown file
-		File.open($SpecialIdDir+domain+"/"+urlStructure+"/patchup.txt","w"){|f| f.write(patchupFileMo)}		#change the patchup file
+		File.open($SpecialIdDir+domain+"/"+urlStructure+"/patchup.txt","w"){|f| f.write(patchupFile)}		#change the patchup file
 	end
 end
