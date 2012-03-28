@@ -257,14 +257,14 @@ def CheckModel(record, domain, url, urlStructure, id, relative)
 						attrIndex = traffic.index("specialId = '#{newAnchor}'")
 						closinggt = findclosinggt(traffic, attrIndex)
 						openinglt = findopeninglt(traffic, attrIndex)
-						tagInfo = traffic[openinglt..closinggt].gsub(/\sspecialId\s=\s\'.*?\'/,'')
+						tagInfo = traffic[openinglt..closinggt].gsub(/\sspecialId\s=\s\'.*?\'/,'').gsub(/[\r\n]/,'')
 						vicinityInfo = (traffic[closinggt+1,100].gsub(/\sspecialId\s=\s\'.*?\'/,'').gsub(/[\r\n]/,''))[0..$AnchorLength]
 						diffRFileHandle.write(" =|> " + tagInfo + " => " + vicinityInfo)
 						diffRTLDHandle.write(" =|> " + tagInfo + " => " + vicinityInfo)
 						policyRFH.write(d[0]+" ==> "+d[1]+" =|> " + tagInfo + " => " + vicinityInfo +"\n")		#add simple policy entry
 						#historyContent += (d[1]+"\n->Time Added:"+(Time.new.to_s)+"\n->First seen traffic:"+url+id.to_s+"\n->Time Deleted:\n->Accessed Entries:"+url+id.to_s+"\n\n")		#add policy history
 						if (!suggestedAnchors.include?(newAnchor))
-							pfh.write(tagInfo + " => " + vicinityInfo + " =|> " + url + "\n")
+							pfh.write("{zyczyc{" + tagInfo + "}zyczyc{" + vicinityInfo + "}zyczyc}" + url + "{zyczyc}\n")
 						end
 						suggestedAnchors.push(newAnchor)
 					end
@@ -297,27 +297,39 @@ def AdaptAnchor(domain, url, urlStructure)
 	patchlines = Hash.new			#key: googlesyndication3
 	linesToDelete = Array.new
 	linesToAdd = Array.new
-	patchdownFile.each_line{|l|
-		# l has \n
-		patchlines[l] = (patchlines[l]==nil) ? 1 : patchlines[l]+1
-	}
+	patchdownFileTemp = patchdownFile
+	while (patchdownFileTemp!="")&&(patchdownFileTemp!=nil)
+		startingPointer = patchdownFileTemp.index("{zyczyc{")
+		middlePointer = patchdownFileTemp.index("}zyczyc{")
+		endPointer = patchdownFileTemp.index("}zyczyc}\n")
+		if (startingPointer==nil)||(middlePointer==nil)||(endPointer==nil) then break end
+		thisinfo = patchdownFileTemp[startingPointer..endPointer+8]
+		patchlines[thisinfo] = (patchlines[thisinfo]==nil) ? 1 : patchlines[thisinfo]+1
+		patchdownFileTemp = patchdownFileTemp[endPointer+9..-1]
+	end
 	patchlines.each_key{|l|
 		if (patchlines[l]>$PatchDownThreshold) then linesToDelete.push(l) end
 	}
-	#File.open("/home/yuchen/success","w"){|f| f.write("here")}
 	patchupFile = ""
 	if (File.exists?($SpecialIdDir+domain+"/"+urlStructure+"/patchup.txt"))
 		patchupFile = File.read($SpecialIdDir+domain+"/"+urlStructure+"/patchup.txt")
 	end
+	patchupFileTemp = patchupFile
 	patchlines = Hash.new
 	patchlineURLs = Hash.new
-	patchupFile.each_line{|l|
-		patchlineURL = l[l.index(" =|> ")+5..-1]
-		l = l[0..l.index(" =|> ")-1]
-		patchlines[l] = (patchlines[l]==nil) ? 1 : patchlines[l]+1
-		if (patchlineURLs[l]==nil) then patchlineURLs[l] = Array.new end
-		patchlineURLs[l].push(patchlineURL)
-	}
+	while (patchupFileTemp!="")&&(patchupFileTemp!=nil)
+		startingPointer = patchupFileTemp.index("{zyczyc{")
+		middlePointer = patchupFileTemp.index("}zyczyc{")
+		middlePointer2 = patchupFileTemp.index("}zyczyc}")
+		endPointer = patchupFileTemp.index("{zyczyc}\n")
+		if (startingPointer==nil)||(middlePointer==nil)||(middlePointer2==nil)||(endPointer==nil) then break end
+		patchlineURL = patchupFileTemp[middlePointer2+8..endPointer-1]
+		thisinfo = patchupFileTemp[startingPointer..middlePointer2+7]+"\n"
+		patchlines[thisinfo] = (patchlines[thisinfo]==nil) ? 1 : patchlines[thisinfo]+1
+		if (patchlineURLs[thisinfo]==nil) then patchlineURLs[thisinfo] = Array.new end
+		patchlineURLs[thisinfo].push(patchlineURL)
+		patchupFileTemp = patchupFileTemp[endPointer+8..-1]
+	end
 	#eliminate those whose patchlineURLs only has 1 entry.
 	#first get the standalone status
 	if (File.exists?($StandaloneDir + domain + ".txt"))
@@ -335,7 +347,7 @@ def AdaptAnchor(domain, url, urlStructure)
 		}
 	end
 	if (!$standalonePage)
-		# if this page is some kind of homepage that can have more than 1 entry.
+		# if this page is some kind of homepage that can have no more than 1 entry.
 		patchlineURLs.each_key{|l|
 			patchlineURLs[l].uniq!
 			if (patchlineURLs[l].length == 1)
@@ -344,22 +356,22 @@ def AdaptAnchor(domain, url, urlStructure)
 		}
 	end
 	patchlines.each_key{|l|
-		if (l.index(" => ")==nil) then next end
 		if (patchlines[l]>$PatchUpThreshold) then linesToAdd.push(l) end
 	}
+	#obsolete anchors stored to oldAnchors.txt
 	if ((!linesToDelete.empty?)||(!linesToAdd.empty?))
 		original = File.read($SpecialIdDir+domain+"/"+urlStructure+"/"+urlStructure+".txt")
 		id = 0
 		original.each_line{|l|
-			cur_id = l.gsub(/\A#?Tag\s(\d+)\s.*/,'\1')
+			cur_id = l.gsub(/^\{zyczyc\{Tag\s(\d+)\s.*/,'\1')
 			if (cur_id.to_i>id) then id = cur_id.to_i end
 		}
+		oldAFH = File.open($SpecialIdDir+domain+"/"+urlStructure+"/oldAnchors.txt","a")
 		linesToDelete.each{|l|
-			deleteStartPointer = original.index(l)
-			deleteEndPointer = original.index("\n",deleteStartPointer)
-			#deleteEndPointer = original.index("\n",deleteEndPointer+1)	#delete next line as well.
-			original = original[0..deleteStartPointer-1]+"#"+original[deleteStartPointer..deleteEndPointer]+"#"+original[deleteEndPointer+1..original.length]		#Currently it just adds hash to beginning of line.
+			oldAFH.write(l)
+			original.gsub!(/#{Regexp.quote(l)}/,'')
 			patchdownFile.gsub!(l,'')
+=begin
 			#delete all model entries associated with this anchor.
 			Dir.glob($PolicyRDir+domain+"/"+urlStructure+"/policies/*"){|f|
 				content = File.read(f)
@@ -385,7 +397,9 @@ def AdaptAnchor(domain, url, urlStructure)
 				}
 				File.open(f,"w"){|fh| fh.write(content)}
 			}
+=end
 		}
+		oldAFH.close()
 		#read all diff files into memory
 		diffFiles = Dir.glob($DiffRDir+domain+"/"+urlStructure+"/*")
 		diffFileHash = Hash.new
@@ -399,12 +413,11 @@ def AdaptAnchor(domain, url, urlStructure)
 			if (!File.directory? d) then policyFileHash[d] = File.read(d) end
 		}
 		linesToAdd.each{|l|
-			if (l.index(" => ")==nil) then next end
 			id += 1
-			tagContent = l[0..l.index(" => ")-1]
-			vicinityInfo = l[l.index(" => ")+4..l.length]
-			original = original + "Tag #{id.to_s} := " + tagContent + "\n&" + vicinityInfo.chomp + "\n"
-			patchupFile.gsub!(l,'')
+			original = original + "{zyczyc{Tag #{id} := " + l
+			tagContent = l.gsub(/^\{zyczyc\{(.*?)\}zyczyc\{.*/m,'\1')
+			vicinityInfo = l.gsub(/.*\}zyczyc\{(.*?)\}zyczyc\}.*/m,'\1')
+			#File.open($DF,"a"){|f| f.write(tagContent+" "+vicinityInfo+"\n")}
 			#also replace diff files with new id.
 			diffFileHash.each_key{|k|
 				#for each diff file
@@ -439,7 +452,14 @@ def AdaptAnchor(domain, url, urlStructure)
 		}
 		patchupFileMo = ""
 		patchupFile.each_line{|l|
-			if (!(l =~ /^\s/)) then patchupFileMo = patchupFileMo + l end
+			add = true
+			linesToAdd.each{|ll|
+				if (l.index(ll.chomp)==0)
+					add = false
+					break
+				end
+			}
+			if add then patchupFileMo = patchupFileMo + l end
 		}
 		File.open($SpecialIdDir+domain+"/"+urlStructure+"/"+urlStructure+".txt","w"){|f| f.write(original)}		#change the anchors de facto
 		#we have changed anchors, we need to remove patch recommendations as well.

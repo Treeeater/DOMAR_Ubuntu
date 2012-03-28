@@ -78,6 +78,7 @@ def identifyId(traffic, record)
 				url = r[r.index("|:=>")+5..r.index("<=|:|")-2]
 			end
 			specialId = r.gsub(/^\/\/(\d+?)[\s\/].*/m,'\1')
+			if (specialId==r) then next end				#bail out if we cannot find id
 			domain = getTLD(url)
 			if (result.has_key? domain)
 				result[domain].push(specialId)
@@ -284,13 +285,11 @@ def extractTextPattern(trafficFile,recordFile,outputFileName,recordDomain,urlStr
 	fh = File.new(outputFileName,'w')
 	i = 0
 	textPattern.each_index{|id|
-		#fh.write("Domain:= "+k)
-		fh.write("Tag ")
+		fh.write("{zyczyc{Tag ")
 		fh.write(id.to_s)
-		fh.write(" := "+textPattern[id][0]+"\n")
-		fh.write("&"+textPattern[id][1].to_s)
-		fh.write("\n")
-		#fh.write("\n-----\n")
+		fh.write(" := "+textPattern[id][0]+"}zyczyc{")
+		fh.write(textPattern[id][1].to_s)
+		fh.write("}zyczyc}\n")
 	}
 end
 =begin

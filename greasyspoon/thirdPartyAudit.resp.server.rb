@@ -238,67 +238,37 @@ def convertResponse(response, textPattern, url, filecnt, urlStructure)
 	id = ""
 	error = false
 	errormsg = ""
-	currentDomain = ""
 	#sanitizedurl = url.gsub(/[^a-zA-Z0-9]/,"")
     	sanitizedhost = getTLD(url)
 	sanitizedhost = sanitizedhost.gsub(/[^a-zA-Z0-9]/,"")
-	textPattern.each_line{|l|
-		l = l.chomp
-		if (l[0..8]=="Domain:= ")
-			currentDomain = l[9..l.length]
-			next
+	while (textPattern!="")&&(textPattern!=nil)
+		startingPointer = textPattern.index("{zyczyc{Tag ")
+		middlePointer = textPattern.index("}zyczyc{")
+		endPointer = textPattern.index("}zyczyc}\n")
+		if (startingPointer==nil)||(middlePointer==nil)||(endPointer==nil) then return end
+		matches = false
+		thisinfo = textPattern[startingPointer..endPointer+8]
+		textPattern = textPattern[endPointer+9..-1]
+		id = thisinfo.gsub(/\{zyczyc\{Tag\s(\d+)\s:=.*/m,'\1')
+		processedNodes[id]=thisinfo
+		toMatch = thisinfo.gsub(/.*?\{zyczyc\{Tag\s\d+\s:=\s(.*?)\}zyczyc\{.*/m,'\1')
+		toMatcht = toMatch
+		matchpoints = response.enum_for(:scan,toMatch).map{Regexp.last_match.begin(0)}
+		i = 0
+		while (i<matchpoints.size)
+			matches = true
+			listToAdd[id] = (listToAdd[id]==nil) ? Array.new([matchpoints[i]+toMatch.length-1]) : listToAdd[id].push(matchpoints[i]+toMatch.length-1)
+			vicinityInfo = (response[matchpoints[i]+toMatch.length,100].gsub(/[\r\n]/,''))[0..$AnchorLength]
+			vicinityList[id] = (vicinityList[id]==nil) ? Array.new([vicinityInfo]) : vicinityList[id].push(vicinityInfo)
+			i+=1
 		end
-		if (l[0..2]=='Tag')
-			matches = false
-			id = currentDomain + l.gsub(/\ATag\s(\d+).*/,'\1')
-			if (processedNodes[id]!=nil)
-				next			#we don't want to add multiples of specialId to a node.
-			end
-			processedNodes[id]=l
-			#tagName = l.gsub(/\<(\w*).*/,'\1')
-			toMatch = l.gsub(/.*?(\<.*\>)$/,'\1')
-			toMatcht = toMatch
-=begin
-			#this is the code base to deal with attributes shuffled. However there is a bug. if we need to turn this back on we need to fix it.
-			toMatchGrp = toMatch.scan(/(\w*)=\"([\w\s]*)\"/)
-			toMatchGrp.each_index{|i|
-				toMatchGrp[i] = toMatchGrp[i][0]+"=\""+toMatchGrp[i][1]+"\""
-			}
-			 to deal with the problem of having different permutations of attributes.
-			temp = toMatchGrp.permutation(toMatchGrp.length).to_a
-			temp.each_index{|i|
-				toMatch = '<'+tagName+(temp[i].length==0?"":" ")+temp[i].join(" ")+'>'
-				matchpoints = response.enum_for(:scan,toMatch).map{Regexp.last_match.begin(0)}
-				i = 0
-				while (i<matchpoints.size)
-					matches = true
-					listToAdd[id] = (listToAdd[id]==nil) ? Array.new([matchpoints[i]+toMatch.length-1]) : listToAdd[id].push(matchpoints[i]+toMatch.length-1)
-					vicinityInfo = (response[matchpoints[i]+toMatch.length,100].gsub(/\n/,''))[0,30]
-					vicinityList[id] = (vicinityList[id]==nil) ? Array.new([vicinityInfo]) : vicinityList[id].push(vicinityInfo)
-					i+=1
-					#response.insert(response.index(toMatch)+toMatch.length-1,' specialId="'+id.to_s+'"')
-				end
-			}
-=end
-			matchpoints = response.enum_for(:scan,toMatch).map{Regexp.last_match.begin(0)}
-			i = 0
-			while (i<matchpoints.size)
-				matches = true
-				listToAdd[id] = (listToAdd[id]==nil) ? Array.new([matchpoints[i]+toMatch.length-1]) : listToAdd[id].push(matchpoints[i]+toMatch.length-1)
-				vicinityInfo = (response[matchpoints[i]+toMatch.length,100].gsub(/[\r\n]/,''))[0..$AnchorLength]
-				vicinityList[id] = (vicinityList[id]==nil) ? Array.new([vicinityInfo]) : vicinityList[id].push(vicinityInfo)
-				i+=1
-			end
-			if (matches==false)
-				File.open($SpecialIdDir+sanitizedhost+"/"+urlStructure+"/patchdown.txt","a"){|f| f.write(l+"\n")}
-				error = true
-				errormsg += "failed to find a match for "+toMatcht+"\n"
-			end
+		if (matches==false)
+			File.open($SpecialIdDir+sanitizedhost+"/"+urlStructure+"/patchdown.txt","a"){|f| f.write(thisinfo)}
+			error = true
+			errormsg += "failed to find a match for "+toMatcht+"\n"
 		end
-		if (l[0..0]=='&')
-			recordedVicinity[id] = l[1,l.length]		#if we want to extract children information
-		end
-	}
+		recordedVicinity[id] = thisinfo.gsub(/.*?\}zyczyc\{(.*)\}zyczyc\}.*/m,'\1')		#if we want to extract children informatio
+	end
 	vicinityList.each_key{|id|
 		if (vicinityList[id].length>1)
 			found = 0
@@ -317,57 +287,19 @@ def convertResponse(response, textPattern, url, filecnt, urlStructure)
 				listToAdd[id]=candidates.clone		#candidates only have one element - the correct one.
 			elsif (found == 0)
 				listToAdd.delete(id)
-				File.open($SpecialIdDir+sanitizedhost+"/"+urlStructure+"/patchdown.txt","a"){|f| f.write(processedNodes[id]+"\n")}
-=begin
-				candidates = listToAdd[id].clone		#temporarily store the previously found elements (all of them are incorrect) in a new array.
-				listToAdd.delete(id)				#remove the original item
-				#add all original items differently.
-				#store vicinity information in a cache folder
-				makeDirectory($AnchorErrorDir+sanitizedhost+"/"+sanitizedurl+"/")
-				fh=File.open($AnchorErrorDir+sanitizedhost+"/"+sanitizedurl+"/error"+filecnt.to_s+".txt","a")
-				candidates.each_index{|c|
-					idpatched = id + "->" + c.to_s
-					listToAdd[idpatched] = Array.new([candidates[c]])
-					fh.write(id + " => " + idpatched + " ]> " + vicinityList[id][c] + "\n" )
-				}
-				fh.close()
-=end
+				File.open($SpecialIdDir+sanitizedhost+"/"+urlStructure+"/patchdown.txt","a"){|f| f.write(processedNodes[id])}
 				error = true
 				errormsg += "multiple matches found for: "+ id + ", but no vicinity matches original model.\n"
 				p errormsg
 			elsif (found > 1)
 				listToAdd.delete(id)				#remove the original item
-				File.open($SpecialIdDir+sanitizedhost+"/"+urlStructure+"/patchdown.txt","a"){|f| f.write(processedNodes[id]+"\n")}
-=begin
-				#add all original items differently, FIXME:we should include more vicinity info.
-				#store vicinity information in a cache folder
-				makeDirectory($AnchorErrorDir+sanitizedhost+"/"+sanitizedurl+"/")
-				fh=File.open($AnchorErrorDir+sanitizedhost+"/"+sanitizedurl+"/error"+filecnt.to_s+".txt","a")
-				candidates.each_index{|c|
-					idpatched = id + "->" + c.to_s
-					listToAdd[idpatched] = Array.new([candidates[c]])
-					fh.write(id + " => " + idpatched + " ]> " + candidatesVicinity[c] + "\n" )
-				}
-				fh.close()
-=end
+				File.open($SpecialIdDir+sanitizedhost+"/"+urlStructure+"/patchdown.txt","a"){|f| f.write(processedNodes[id])}
 				error = true
 				errormsg += "multiple matches found for: "+ id + ", because more than 1 vicinity matches original model. found a total of "+found.to_s+" matches.\n"
 				p errormsg
 			end
 		end
 	}
-=begin
-	checkDup = Hash.new
-	listToAdd.each_key{|id|
-		#remove duplicates.
-		#This scenario happens only when input file number is more than 1.
-		if (checkDup.key?(listToAdd[id][0])==nil)
-			checkDup[listToAdd[id][0]]=true
-		else
-			
-		end
-	}
-=end
 	needToCheckPatchDown = false
 	patchDownContent = 0
 	modifiedContent = 0
