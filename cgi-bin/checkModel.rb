@@ -374,14 +374,16 @@ def AdaptAnchor(domain, url, urlStructure)
 	#obsolete anchors stored to oldAnchors.txt
 	if ((!linesToDelete.empty?)||(!linesToAdd.empty?))
 		original = File.read($SpecialIdDir+domain+"/"+urlStructure+"/"+urlStructure+".txt")
+=begin
 		id = 0
 		original.each_line{|l|
 			cur_id = l.gsub(/^\{zyczyc\{Tag\s(\d+)\s.*/,'\1')
 			if (cur_id.to_i>id) then id = cur_id.to_i end
 		}
+=end
 		oldAFH = File.open($SpecialIdDir+domain+"/"+urlStructure+"/oldAnchors.txt","a")
 		linesToDelete.each{|l|
-			#oldAFH.write(l)
+			oldAFH.write(l)
 			original.gsub!(/#{Regexp.quote(l)}/m,'')
 			patchdownFile.gsub!(/#{Regexp.quote(l)}/m,'')
 =begin
@@ -427,11 +429,11 @@ def AdaptAnchor(domain, url, urlStructure)
 		}
 		linesToAdd.each{|l|
 			if (original.match(/\{zyczyc\{Tag\s\d+\s:=\s#{Regexp.quote(l)}/)!=nil) then next end			#to avoid duplicates
-			id += 1
-			original = original + "{zyczyc{Tag #{id} := " + l
+			#id += 1
 			tagContent = l.gsub(/^(.*?)\}zyczyc\{.*/m,'\1')
 			vicinityInfo = l.gsub(/.*\}zyczyc\{(.*?)\}zyczyc\}.*/m,'\1')
-			
+			id = Digest::MD5.hexdigest(tagContent+vicinityInfo)[0..8].to_i(16)
+			original = original + "{zyczyc{Tag #{id} := " + l
 			#also replace diff files with new id.
 			diffFileHash.each_key{|k|
 				#for each diff file

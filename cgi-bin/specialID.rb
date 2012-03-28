@@ -1,5 +1,6 @@
 #!/usr/bin/ruby
 require 'fileutils'
+require 'digest/md5'
 
 $checked = Hash.new
 
@@ -269,20 +270,35 @@ def extractTextPattern(trafficFile,recordFile,outputFileName,recordDomain,urlStr
 	#automatically judge if this is a standalone page by looking at if all the urls are the same in the training data.
 	tempurl = nil
 	$standalonePage = true
-	trafficFile.each{|t|
-		if (t.index('?')==nil) then next end
-		url = t.gsub(/.*\/(.*)\?.*/,'\1')
-		if (tempurl == nil)
-			tempurl = url
-			next
-		end
-		if (tempurl!=url)
-			$standalonePage = false
-		end
-	}
-	#write this information to hard drive so that when we update the anchors, we look up the table to find if this group is a standalone group
-	makeDirectory($StandaloneDir)
-	File.open($StandaloneDir + recordDomain + ".txt","a"){|f| f.write(urlStructure+" "+$standalonePage.to_s+"\n")}
+	if (File.exists?($StandaloneDir + recordDomain + ".txt"))
+		standaloneFC = File.read($StandaloneDir + recordDomain + ".txt")
+		standaloneFC.each_line{|l|
+			if (l.match(/#{Regexp.quote(urlStructure)}\s.*/)!=nil)
+				temp = l.chomp.gsub(/.*\s(.*)/,'\1')
+				if (temp[0]==116)
+					$standalonePage = true
+				else
+					$standalonePage = false 
+				end
+				break
+			end
+		}
+	else
+		trafficFile.each{|t|
+			if (t.index('?')==nil) then next end
+			url = t.gsub(/.*\/(.*)\?.*/,'\1')
+			if (tempurl == nil)
+				tempurl = url
+				next
+			end
+			if (tempurl!=url)
+				$standalonePage = false
+			end
+		}
+		#write this information to hard drive so that when we update the anchors, we look up the table to find if this group is a standalone group
+		makeDirectory($StandaloneDir)
+		File.open($StandaloneDir + recordDomain + ".txt","a"){|f| f.write(urlStructure+" "+$standalonePage.to_s+"\n")}
+	end
 	trafficFile.each_index{|i|
 		traffic = File.read(trafficFile[i])
 		record = File.read(recordFile[i])
@@ -300,7 +316,8 @@ def extractTextPattern(trafficFile,recordFile,outputFileName,recordDomain,urlStr
 	textPattern.each_index{|id|
 		if (writtenPattern[textPattern[id][0]+textPattern[id][1].to_s]==true) then next end
 		fh.write("{zyczyc{Tag ")
-		fh.write(id.to_s)
+		#fh.write(id.to_s)
+		fh.write(Digest::MD5.hexdigest(textPattern[id][0]+textPattern[id][1].to_s)[0..8].to_i(16))
 		fh.write(" := "+textPattern[id][0]+"}zyczyc{")
 		fh.write(textPattern[id][1].to_s)
 		fh.write("}zyczyc}\n")
