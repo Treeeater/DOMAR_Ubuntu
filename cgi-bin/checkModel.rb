@@ -324,7 +324,7 @@ def AdaptAnchor(domain, url, urlStructure)
 		endPointer = patchupFileTemp.index("{zyczyc}\n")
 		if (startingPointer==nil)||(middlePointer==nil)||(middlePointer2==nil)||(endPointer==nil) then break end
 		patchlineURL = patchupFileTemp[middlePointer2+8..endPointer-1]
-		thisinfo = patchupFileTemp[startingPointer..middlePointer2+7]+"\n"
+		thisinfo = patchupFileTemp[startingPointer+8..middlePointer2+7]+"\n"
 		patchlines[thisinfo] = (patchlines[thisinfo]==nil) ? 1 : patchlines[thisinfo]+1
 		if (patchlineURLs[thisinfo]==nil) then patchlineURLs[thisinfo] = Array.new end
 		patchlineURLs[thisinfo].push(patchlineURL)
@@ -358,6 +358,7 @@ def AdaptAnchor(domain, url, urlStructure)
 	patchlines.each_key{|l|
 		if (patchlines[l]>$PatchUpThreshold) then linesToAdd.push(l) end
 	}
+	linesToAdd.uniq!
 	#obsolete anchors stored to oldAnchors.txt
 	if ((!linesToDelete.empty?)||(!linesToAdd.empty?))
 		original = File.read($SpecialIdDir+domain+"/"+urlStructure+"/"+urlStructure+".txt")
@@ -413,9 +414,10 @@ def AdaptAnchor(domain, url, urlStructure)
 			if (!File.directory? d) then policyFileHash[d] = File.read(d) end
 		}
 		linesToAdd.each{|l|
+			if (original.match(/\{zyczyc\{Tag\s\d+\s:=\s#{Regexp.quote(l)}/)!=nil) then next end			#to avoid duplicates
 			id += 1
 			original = original + "{zyczyc{Tag #{id} := " + l
-			tagContent = l.gsub(/^\{zyczyc\{(.*?)\}zyczyc\{.*/m,'\1')
+			tagContent = l.gsub(/^(.*?)\}zyczyc\{.*/m,'\1')
 			vicinityInfo = l.gsub(/.*\}zyczyc\{(.*?)\}zyczyc\}.*/m,'\1')
 			#File.open($DF,"a"){|f| f.write(tagContent+" "+vicinityInfo+"\n")}
 			#also replace diff files with new id.
@@ -454,7 +456,7 @@ def AdaptAnchor(domain, url, urlStructure)
 		patchupFile.each_line{|l|
 			add = true
 			linesToAdd.each{|ll|
-				if (l.index(ll.chomp)==0)
+				if (l.index(ll.chomp)!=nil)
 					add = false
 					break
 				end

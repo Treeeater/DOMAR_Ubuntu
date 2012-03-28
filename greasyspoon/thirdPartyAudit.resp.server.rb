@@ -252,8 +252,8 @@ def convertResponse(response, textPattern, url, filecnt, urlStructure)
 		id = thisinfo.gsub(/\{zyczyc\{Tag\s(\d+)\s:=.*/m,'\1')
 		processedNodes[id]=thisinfo
 		toMatch = thisinfo.gsub(/.*?\{zyczyc\{Tag\s\d+\s:=\s(.*?)\}zyczyc\{.*/m,'\1')
-		toMatcht = toMatch
 		matchpoints = response.enum_for(:scan,toMatch).map{Regexp.last_match.begin(0)}
+		File.open($DF,"a"){|f| f.write(toMatch + "||number||" + matchpoints.size.to_s+"\n")}
 		i = 0
 		while (i<matchpoints.size)
 			matches = true
@@ -265,7 +265,7 @@ def convertResponse(response, textPattern, url, filecnt, urlStructure)
 		if (matches==false)
 			File.open($SpecialIdDir+sanitizedhost+"/"+urlStructure+"/patchdown.txt","a"){|f| f.write(thisinfo)}
 			error = true
-			errormsg += "failed to find a match for "+toMatcht+"\n"
+			errormsg += "failed to find a match for "+toMatch+"\n"
 		end
 		recordedVicinity[id] = thisinfo.gsub(/.*?\}zyczyc\{(.*)\}zyczyc\}.*/m,'\1')		#if we want to extract children informatio
 	end

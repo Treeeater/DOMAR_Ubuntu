@@ -284,12 +284,16 @@ def extractTextPattern(trafficFile,recordFile,outputFileName,recordDomain,urlStr
 	#p textPattern
 	fh = File.new(outputFileName,'w')
 	i = 0
+	#to avoid duplicates:
+	writtenPattern = Hash.new
 	textPattern.each_index{|id|
+		if (writtenPattern[textPattern[id][0]+textPattern[id][1].to_s]==true) then next end
 		fh.write("{zyczyc{Tag ")
 		fh.write(id.to_s)
 		fh.write(" := "+textPattern[id][0]+"}zyczyc{")
 		fh.write(textPattern[id][1].to_s)
 		fh.write("}zyczyc}\n")
+		writtenPattern[textPattern[id][0]+textPattern[id][1].to_s] = true
 	}
 end
 =begin
