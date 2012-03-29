@@ -189,10 +189,10 @@ def learnTextPattern(traffic, specialIds, textPattern, srcURL)
 			closinggt = findclosinggt(traffic, attrIndex)
 			openinglt = findopeninglt(traffic, attrIndex)
 			tagInfo = traffic[openinglt..closinggt].gsub(/\sspecialId\s=\s\'.*?\'/,'')
-			vicinityInfo = (traffic[closinggt+1,100].gsub(/\sspecialId\s=\s\'.*?\'/,''))[0..$AnchorLength]
+			vicinityInfo = (traffic[closinggt+1,$AnchorLength+$MaxAnchorVicinityLength].gsub(/\sspecialId\s=\s\'.*?\'/,''))[0..$AnchorLength]
 			#ensure our vicinity feature length is long enough to distinguish between similar vicinities.
 			matchpoints = originalTraffic.enum_for(:scan,tagInfo+vicinityInfo).map{Regexp.last_match.begin(0)}
-			File.open($DF,"a"){|f| f.write(tagInfo + "||number||" + matchpoints.size.to_s+"\n")}
+			#File.open($DF,"a"){|f| f.write(tagInfo + "||number||" + matchpoints.size.to_s+"\n")}
 			currentExtraLength = 0
 			while (matchpoints.size>1)
 				currentExtraLength += 10

@@ -1159,7 +1159,12 @@ function writePolicy()
 			//if ((rawdata[0][i].whatR)&&(rawdata[0][i].whatR!="")) rawstring = rawstring +" <=:| "+rawdata[0][i].whatR;
 			rawstring = rawstring +" <=:| "+rawdata[0][i].what;
 			rawstring = rawstring + " |:=> "+rawdata[0][i].who;
-			if ((rawdata[0][i].extraInfo)&&(rawdata[0][i].extraInfo!="")) rawstring = rawstring +" <=|:| "+rawdata[0][i].extraInfo;
+			if ((rawdata[0][i].extraInfo)&&(rawdata[0][i].extraInfo!="")) 
+			{
+				eI = rawdata[0][i].extraInfo;
+				eI = eI.replace(/[\r\n]/g,"");
+				rawstring = rawstring +" <=|:| " + eI;
+			}
 			rawstring += "\n\n";
 		}
 	}

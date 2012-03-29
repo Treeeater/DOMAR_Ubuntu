@@ -252,14 +252,14 @@ def CheckModel(record, domain, url, urlStructure, id, relative)
 					diffRFileHandle.write(d[0] + " ==> " + d[1])
 					diffRTLDHandle.write(d[0] + " ==> " + d[1])
 					newAnchor = d[0].gsub(/\A\/\/(\d+)$/,'\1')			#cater //393
-					newAnchor = newAnchor.gsub(/\A\/\/(\d+?)\D.*/,'\1')		#cater //393 ,innerHTML or //393/object
+					newAnchor = newAnchor.gsub(/\A\/\/(\d+?)\D.*/m,'\1')		#cater //393 ,innerHTML or //393/object
 					if (d[0]!=newAnchor)
 						#generate a patch info
 						attrIndex = traffic.index("specialId = '#{newAnchor}'")
 						closinggt = findclosinggt(traffic, attrIndex)
 						openinglt = findopeninglt(traffic, attrIndex)
 						tagInfo = traffic[openinglt..closinggt].gsub(/\sspecialId\s=\s\'.*?\'/,'')
-						vicinityInfo = (traffic[closinggt+1,100].gsub(/\sspecialId\s=\s\'.*?\'/,''))[0..$AnchorLength]
+						vicinityInfo = (traffic[closinggt+1,$MaxAnchorVicinityLength+$AnchorLength].gsub(/\sspecialId\s=\s\'.*?\'/,''))[0..$AnchorLength]
 
 						#ensure our vicinity feature length is long enough to distinguish between similar vicinities.
 						matchpoints = originalTraffic.enum_for(:scan,tagInfo+vicinityInfo).map{Regexp.last_match.begin(0)}
@@ -267,7 +267,7 @@ def CheckModel(record, domain, url, urlStructure, id, relative)
 						while (matchpoints.size>1)
 							currentExtraLength += 10
 							if (currentExtraLength>$MaxAnchorVicinityLength) then break end		#bail out
-							vicinityInfo = (traffic[closinggt+1,100].gsub(/\sspecialId\s=\s\'.*?\'/,'').gsub(/[\r\n]/,''))[0..$AnchorLength+currentExtraLength]
+							vicinityInfo = (traffic[closinggt+1,$MaxAnchorVicinityLength+$AnchorLength].gsub(/\sspecialId\s=\s\'.*?\'/,''))[0..$AnchorLength+currentExtraLength]
 							matchpoints = originalTraffic.enum_for(:scan,tagInfo+vicinityInfo).map{Regexp.last_match.begin(0)}
 						end
 
@@ -276,6 +276,7 @@ def CheckModel(record, domain, url, urlStructure, id, relative)
 						policyRFH.write(d[0]+" ==> "+d[1]+" =|> " + tagInfo.gsub(/[\r\n]/,'') + " => " + vicinityInfo.gsub(/[\r\n]/,'') +"\n")		#add simple policy entry
 						#historyContent += (d[1]+"\n->Time Added:"+(Time.new.to_s)+"\n->First seen traffic:"+url+id.to_s+"\n->Time Deleted:\n->Accessed Entries:"+url+id.to_s+"\n\n")		#add policy history
 						if (!suggestedAnchors.include?(newAnchor))
+							#when writing a patchup file you dont want to get rid of the \r\ns.
 							pfh.write("{zyczyc{" + tagInfo + "}zyczyc{" + vicinityInfo + "}zyczyc}" + url + "{zyczyc}\n")
 						end
 						suggestedAnchors.push(newAnchor)
@@ -340,7 +341,7 @@ def AdaptAnchor(domain, url, urlStructure)
 		patchlines[thisinfo] = (patchlines[thisinfo]==nil) ? 1 : patchlines[thisinfo]+1
 		if (patchlineURLs[thisinfo]==nil) then patchlineURLs[thisinfo] = Array.new end
 		patchlineURLs[thisinfo].push(patchlineURL)
-		patchupFileTemp = patchupFileTemp[endPointer+8..-1]
+		patchupFileTemp = patchupFileTemp[endPointer+9..-1]
 	end
 	#eliminate those whose patchlineURLs only has 1 entry.
 	#first get the standalone status
