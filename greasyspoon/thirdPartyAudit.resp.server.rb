@@ -306,8 +306,10 @@ def convertResponse(response, textPattern, url, filecnt, urlStructure)
 	modifiedContent = 0
 	if (File.exists?($SpecialIdDir+sanitizedhost+"/"+urlStructure+"/patchdown.txt"))
 		patchDownContent = File.read($SpecialIdDir+sanitizedhost+"/"+urlStructure+"/patchdown.txt")
-		modifiedContent = patchDownContent.clone
-		needToCheckPatchDown = true
+		if (patchDownContent!="")
+			modifiedContent = patchDownContent.clone
+			needToCheckPatchDown = true
+		end
 	end
 	listToAdd.each_key{|id|
 		index = listToAdd[id][0]
@@ -321,11 +323,18 @@ def convertResponse(response, textPattern, url, filecnt, urlStructure)
 		}
 		#We want to remove all entries in patchdown.txt if we have seen this id reappears
 		if (needToCheckPatchDown)
-			patchDownContent.each_line{|l|
-				if (l.index("Tag #{id} :")!=nil)
-					modifiedContent.slice!(l)
+			startingPointer = modifiedContent.index("{zyczyc{")
+			while (startingPointer!=nil)
+				File.open($DF,"a"){|f| f.write(startingPointer.to_s+" ")}
+				endPointer = modifiedContent.index("}zyczyc}",startingPointer)
+				cur_id = modifiedContent[startingPointer..endPointer].gsub(/\{zyczyc\{Tag\s(\d+?)\s:=\s.*/m,'\1')
+				if (id.to_s==cur_id.to_s)
+					if startingPointer==0 then modifiedContent = modifiedContent[endPointer+8..-1] else modifiedContent = modifiedContent[0..startingPointer-1]+modifiedContent[endPointer+8..-1] end
+					startingPointer = modifiedContent.index("{zyczyc{",startingPointer)
+				else
+					startingPointer = modifiedContent.index("{zyczyc{",startingPointer+1)
 				end
-			}
+			end
 		end
 	}
 	if (needToCheckPatchDown) then File.open($SpecialIdDir+sanitizedhost+"/"+urlStructure+"/patchdown.txt","w"){|f| f.write(modifiedContent)} end
