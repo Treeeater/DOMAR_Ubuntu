@@ -40,6 +40,9 @@ var filecnt = "";
 var DOMRecord = 0;
 var windowRecord = 1;
 var documentRecord = 2;
+var curDomain;
+var curTopDomain;
+var cur_Attributes = new Array();
 //Enumerates all types of elements to mediate properties like parentNode
 //According to DOM spec level2 by W3C, HTMLBaseFontElement not defined in FF.
 var allElementsType = [HTMLElement,HTMLHtmlElement,HTMLHeadElement,HTMLLinkElement,HTMLTitleElement,HTMLMetaElement,HTMLBaseElement,HTMLStyleElement,HTMLBodyElement,HTMLFormElement,HTMLSelectElement,HTMLOptGroupElement,HTMLOptionElement,HTMLInputElement,HTMLTextAreaElement,HTMLButtonElement,HTMLLabelElement,HTMLFieldSetElement,HTMLLegendElement,HTMLUListElement,HTMLDListElement,HTMLDirectoryElement,HTMLMenuElement,HTMLLIElement,HTMLDivElement,HTMLParagraphElement,HTMLHeadingElement,HTMLQuoteElement,HTMLPreElement,HTMLBRElement,HTMLFontElement,HTMLHRElement,HTMLModElement,HTMLAnchorElement,HTMLImageElement,HTMLParamElement,HTMLAppletElement,HTMLMapElement,HTMLAreaElement,HTMLScriptElement,HTMLTableElement,HTMLTableCaptionElement,HTMLTableColElement,HTMLTableSectionElement,HTMLTableRowElement,HTMLTableCellElement,HTMLFrameSetElement,HTMLFrameElement,HTMLIFrameElement,HTMLObjectElement,HTMLSpanElement];
@@ -49,21 +52,40 @@ var oldNextSibling = Element.prototype.__lookupGetter__('nextSibling');
 var oldPreviousSibling = Element.prototype.__lookupGetter__('previousSibling');
 var oldChildNodes = Element.prototype.__lookupGetter__('childNodes');
 var oldGetAttribute = Element.prototype.getAttribute;
- 
+
+var restoreAttributes = function()
+{
+	for (id in cur_Attributes)
+	{
+		thisNode = cur_Attributes[id];
+		var func = oldEGetTagName[50];
+		var j;
+		for (j=0; j < allElementsType.length; j++)
+		{
+			if ((thisNode.constructor==allElementsType[j])||(thisNode.__proto__==allElementsType[j].prototype)) func = oldSetAttr[j];
+		}
+		func.apply(thisNode,['specialId',id]);
+	}
+	cur_Attributes = new Array();
+};
+
 var getXPathA = function(elt)
 {
-     var path = "";
-     for (; elt && (elt.nodeType == 1||elt.nodeType == 3||elt.nodeType == 2); elt = oldParentNode.apply(elt))
-     {
+	restore = false;
+	for (i in cur_Attributes) {restore = true; break;}
+	if (restore) restoreAttributes();
+    var path = "";
+    for (; elt && (elt.nodeType == 1||elt.nodeType == 3||elt.nodeType == 2); elt = oldParentNode.apply(elt))
+    {
 		idx = getElementIdx(elt);
 		if (elt.nodeType ==1) xname = elt.tagName;
 		else if (elt.nodeType == 3) xname = "TEXT";
 		else if (elt.nodeType == 2) xname = "ATTR";
 		if (idx > 1) xname += "[" + idx + "]";
 		path = "/" + xname + path;
-     }
-     if (path.substr(0,5)!="/HTML") return "";		//right now, if this node is not originated from HTMLDocument (e.g., some script calls createElement which does not contain any private information, we do not record this access.
-	 return path;
+    }
+    if (path.substr(0,5)!="/HTML") return "";		//right now, if this node is not originated from HTMLDocument (e.g., some script calls createElement which does not contain any private information, we do not record this access.
+	return path;
 };
 
 var getXPathR = function(elt)
@@ -829,6 +851,7 @@ var oldHasAttr = new Array();
 var oldInsertBefore = new Array();
 var oldAppendChild = new Array();
 var oldReplaceChild = new Array();
+var oldAttributes = new Array();
 //assign element.getElementsByTagName to new value
 for (i=0; i<allElementsType.length; i++)
 {
@@ -838,6 +861,7 @@ for (i=0; i<allElementsType.length; i++)
 	oldInsertBefore[i] = allElementsType[i].prototype.insertBefore;
 	oldAppendChild[i] = allElementsType[i].prototype.appendChild;
 	oldReplaceChild[i] = allElementsType[i].prototype.replaceChild;
+	oldAttributes[i] = allElementsType[i].prototype.__lookupGetter__('attributes');
 	allElementsType[i].prototype.getElementsByTagName = function(){
 		var func = oldEGetTagName[50];		//HTMLObjectElement in FF has a bug. This is a ad hoc workaround.
 		var j;
@@ -1086,6 +1110,24 @@ for (i=0; i<allElementsType.length; i++)
 		}
 		return func.apply(this,arguments);
 	};
+	newAttributes = function(){
+		var func = oldEGetTagName[50];
+		var j;
+		for (j=0; j < allElementsType.length; j++)
+		{
+			if ((this.constructor==allElementsType[j])||(this.__proto__==allElementsType[j].prototype)) 
+			{ 
+				func = oldAttributes[j];
+			}
+		}
+		returnValue = func.apply(this,arguments);
+		if (returnValue.getNamedItem('specialId')==null) return returnValue;
+		cur_Attributes[returnValue.specialId.value] = this;
+		returnValue.removeNamedItem('specialId');
+		return returnValue;
+	};
+	allElementsType[i].prototype.__defineGetter__('attributes',newAttributes);
+	///////////////////////////////////////////////////
 	if (oldInnerHTMLGetter)
 	{
 		allElementsType[i].prototype.__defineGetter__('innerHTML',function(str){
@@ -1198,7 +1240,7 @@ function writePolicy()
 window.addEventListener('beforeunload',writePolicy,true);
 //window.setTimeout("_record.writePolicy2();",5000);
 //document.head.removeChild(oldGetTagName.call(document,'script')[0]);			//remove myself
-return (function(){this.getRecord = function(){return record;}; this.writePolicy2 = writePolicy; this.Push = function(a){if (a!="") trustedDomains.push(a)}; this.setId = function(id){if (id!="") filecnt = id;}; this.Get = function() {return trustedDomains}; return this;});
+return (function(){this.getRecord = function(){return record;}; this.writePolicy2 = writePolicy; this.Push = function(a){if (a!="") trustedDomains.push(a)}; this.setId = function(id){if (id!="") filecnt = id;}; this.cur_Attributes = cur_Attributes; this.Get = function() {return trustedDomains}; return this;});
 }
 
 __record = new ___record();

@@ -325,7 +325,7 @@ def convertResponse(response, textPattern, url, filecnt, urlStructure)
 		if (needToCheckPatchDown)
 			startingPointer = modifiedContent.index("{zyczyc{")
 			while (startingPointer!=nil)
-				File.open($DF,"a"){|f| f.write(startingPointer.to_s+" ")}
+				#File.open($DF,"a"){|f| f.write(startingPointer.to_s+" ")}
 				endPointer = modifiedContent.index("}zyczyc}",startingPointer)
 				cur_id = modifiedContent[startingPointer..endPointer].gsub(/\{zyczyc\{Tag\s(\d+?)\s:=\s.*/m,'\1')
 				if (id.to_s==cur_id.to_s)
