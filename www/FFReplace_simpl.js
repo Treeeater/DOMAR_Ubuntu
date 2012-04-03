@@ -42,7 +42,8 @@ var windowRecord = 1;
 var documentRecord = 2;
 var curDomain;
 var curTopDomain;
-var cur_Attributes = new Array();
+var cur_Attributes = new Array();		//works as a buffer to hold specialids and their nodes if attributes is called.
+var cur_InnerHTML = new Array();		//works as a buffer to hold specialids and their nodes if innerHTML is called.
 //Enumerates all types of elements to mediate properties like parentNode
 //According to DOM spec level2 by W3C, HTMLBaseFontElement not defined in FF.
 var allElementsType = [HTMLElement,HTMLHtmlElement,HTMLHeadElement,HTMLLinkElement,HTMLTitleElement,HTMLMetaElement,HTMLBaseElement,HTMLStyleElement,HTMLBodyElement,HTMLFormElement,HTMLSelectElement,HTMLOptGroupElement,HTMLOptionElement,HTMLInputElement,HTMLTextAreaElement,HTMLButtonElement,HTMLLabelElement,HTMLFieldSetElement,HTMLLegendElement,HTMLUListElement,HTMLDListElement,HTMLDirectoryElement,HTMLMenuElement,HTMLLIElement,HTMLDivElement,HTMLParagraphElement,HTMLHeadingElement,HTMLQuoteElement,HTMLPreElement,HTMLBRElement,HTMLFontElement,HTMLHRElement,HTMLModElement,HTMLAnchorElement,HTMLImageElement,HTMLParamElement,HTMLAppletElement,HTMLMapElement,HTMLAreaElement,HTMLScriptElement,HTMLTableElement,HTMLTableCaptionElement,HTMLTableColElement,HTMLTableSectionElement,HTMLTableRowElement,HTMLTableCellElement,HTMLFrameSetElement,HTMLFrameElement,HTMLIFrameElement,HTMLObjectElement,HTMLSpanElement];
@@ -55,9 +56,11 @@ var oldGetAttribute = Element.prototype.getAttribute;
 
 var restoreAttributes = function()
 {
-	for (id in cur_Attributes)
+	//used to move buffer back to dom tree.
+	for (id in cur_InnerHTML)
 	{
-		thisNode = cur_Attributes[id];
+		thisNode = cur_InnerHTML[id];
+		if (thisNode==null) continue;
 		var func = oldEGetTagName[50];
 		var j;
 		for (j=0; j < allElementsType.length; j++)
@@ -66,14 +69,48 @@ var restoreAttributes = function()
 		}
 		func.apply(thisNode,['specialId',id]);
 	}
-	cur_Attributes = new Array();
+	cur_InnerHTML = new Array();
 };
+
+var clearSpecialId = function(node)
+{
+	if (node.nodeType!=1) return;
+	var get = oldGetAttr[50];
+	var j;
+	var matched = false;
+	for (j=0; j < allElementsType.length; j++)
+	{
+		if ((node.constructor==allElementsType[j])||(node.__proto__==allElementsType[j].prototype)) 
+		{
+			get = oldGetAttr[j];
+			matched = true;
+		}
+	}
+	if (matched)
+	{
+		if ((node!=null)&&(node.getAttribute!=null))
+		{
+			var temp = get.apply(node,["specialId"]);
+			if (temp!=null)
+			{
+				node.removeAttribute("specialId");
+				cur_InnerHTML[temp] = node;
+			}
+		}
+		var child = oldChildren.apply(node);
+		for (nodes in child)
+		{
+			clearSpecialId(child[nodes]);
+		}
+	}
+	return;
+}
 
 var getXPathA = function(elt)
 {
 	restore = false;
-	for (i in cur_Attributes) {restore = true; break;}
-	if (restore) restoreAttributes();
+	for (i in cur_InnerHTML) {restore = true; break;}
+	if (restore) restoreAttributes();			//innerHTML can be restored, but attributes cannot.  The reason is that attributes handlers can still be held by a malicious script and call [] later.
     var path = "";
     for (; elt && (elt.nodeType == 1||elt.nodeType == 3||elt.nodeType == 2); elt = oldParentNode.apply(elt))
     {
@@ -91,6 +128,7 @@ var getXPathA = function(elt)
 var getXPathR = function(elt)
 {
     var path = "";
+	var relative = false;
     for (; elt && (elt.nodeType == 1||elt.nodeType == 3||elt.nodeType == 2); elt = oldParentNode.apply(elt))
     {
 		if ((elt.nodeType ==1)&&(oldGetAttribute.apply(elt,['specialId'])!=null))
@@ -98,6 +136,16 @@ var getXPathR = function(elt)
 			path = "//" + oldGetAttribute.apply(elt,['specialId']) + path;
 			break;
 		}
+		for (id in cur_Attributes)			//Looking for cur_Attributes is enough, don't need to look for cur_InnerHTML, because they are already restored.
+		{
+			if (cur_Attributes[id]==elt)
+			{
+				path = "//" + id + path;
+				relative = true;
+				break;
+			}
+		}
+		if (relative) break;
 		idx = getElementIdx(elt);
 		if (elt.nodeType ==1) xname = elt.tagName;
 		else if (elt.nodeType == 3) xname = "TEXT";
@@ -1143,6 +1191,8 @@ for (i=0; i<allElementsType.length; i++)
 				record[DOMRecord].push({what:thispathA,when:seqID,who:callerInfo,whatR:thispathR,extraInfo:"innerHTML read"});
 			}
 		}
+		//strip specialId from all children.
+		clearSpecialId(this);
 		return oldInnerHTMLGetter.call(this,str);
 		});
 	}
