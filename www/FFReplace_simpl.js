@@ -57,10 +57,8 @@ var oldGetAttribute = Element.prototype.getAttribute;
 var restoreAttributes = function()
 {
 	//used to move buffer back to dom tree.
-	i = 0;
 	for (id in cur_InnerHTML)
 	{
-		i++;
 		thisNode = cur_InnerHTML[id];
 		if (thisNode)
 		{
@@ -75,7 +73,6 @@ var restoreAttributes = function()
 
 var clearSpecialId = function(node)
 {
-	try{
 	if ((!node)||(node.nodeType!=1)) return;
 	var get = oldGetAttr[node.constructor];
 	if (get==undefined) get = oldGetAttr[HTMLObjectElement];
@@ -95,7 +92,6 @@ var clearSpecialId = function(node)
 		clearSpecialId(child[nodes]);
 	}
 	return;
-	}catch(e){alert(e)}
 }
 
 var getXPathA = function(elt)
