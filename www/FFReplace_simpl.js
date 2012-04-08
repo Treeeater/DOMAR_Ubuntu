@@ -57,53 +57,45 @@ var oldGetAttribute = Element.prototype.getAttribute;
 var restoreAttributes = function()
 {
 	//used to move buffer back to dom tree.
+	i = 0;
 	for (id in cur_InnerHTML)
 	{
+		i++;
 		thisNode = cur_InnerHTML[id];
-		if (thisNode==null) continue;
-		var func = oldEGetTagName[50];
-		var j;
-		for (j=0; j < allElementsType.length; j++)
+		if (thisNode)
 		{
-			if ((thisNode.constructor==allElementsType[j])||(thisNode.__proto__==allElementsType[j].prototype)) func = oldSetAttr[j];
+			var func = oldSetAttr[thisNode.constructor];
+			if (func==undefined) func = oldSetAttr[HTMLObjectElement];
+			func.apply(thisNode,['specialId',id]);
 		}
-		func.apply(thisNode,['specialId',id]);
 	}
 	cur_InnerHTML = new Array();
+	return;
 };
 
 var clearSpecialId = function(node)
 {
-	if (node.nodeType!=1) return;
-	var get = oldGetAttr[50];
-	var j;
-	var matched = false;
-	for (j=0; j < allElementsType.length; j++)
+	try{
+	if ((!node)||(node.nodeType!=1)) return;
+	var get = oldGetAttr[node.constructor];
+	if (get==undefined) get = oldGetAttr[HTMLObjectElement];
+	if ((node.getAttribute!=undefined)&&(node.removeAttribute!=undefined))
 	{
-		if ((node.constructor==allElementsType[j])||(node.__proto__==allElementsType[j].prototype)) 
+		var temp = get.apply(node,["specialId"]);
+		if (temp)
 		{
-			get = oldGetAttr[j];
-			matched = true;
+			node.removeAttribute("specialId");
+			if (cur_InnerHTML[temp]==undefined) cur_InnerHTML[temp] = node;
 		}
 	}
-	if (matched)
+
+	var child = oldChildren.apply(node);
+	for (nodes in child)
 	{
-		if ((node!=null)&&(node.getAttribute!=null))
-		{
-			var temp = get.apply(node,["specialId"]);
-			if (temp!=null)
-			{
-				node.removeAttribute("specialId");
-				cur_InnerHTML[temp] = node;
-			}
-		}
-		var child = oldChildren.apply(node);
-		for (nodes in child)
-		{
-			clearSpecialId(child[nodes]);
-		}
+		clearSpecialId(child[nodes]);
 	}
 	return;
+	}catch(e){alert(e)}
 }
 
 var getXPathA = function(elt)
@@ -273,26 +265,26 @@ var oldQuerySelectorAll = document.querySelectorAll;		//new
 if (oldGetId)
 {
 	var newGetId = function(){
-	var returnValue = oldGetId.apply(document,arguments);
-	var thispathA = getXPathA(returnValue);
-	var thispathR = getXPathR(returnValue);
-	if (thispathA!="")
-	{
-		//If this node is attached to the root DOM tree, but not something created out of nothing.
-		//To record the calling stack
+		var returnValue = oldGetId.apply(document,arguments);
 		var callerInfo = getCallerInfo();
 		if (callerInfo!=null)
 		{
-			//To record the acutal content.
-			seqID++;
-			if (recordedDOMActions[thispathA+callerInfo]!=true)
+			var thispathA = getXPathA(returnValue);
+			var thispathR = getXPathR(returnValue);
+			if (thispathA!="")
 			{
-				recordedDOMActions[thispathA+callerInfo]=true;
-				record[DOMRecord].push({what:thispathA,whatR:thispathR,when:seqID,who:callerInfo});		//what: always available; whatR: record only DOM nodes access that has Relative XPATH
+				//If this node is attached to the root DOM tree, but not something created out of nothing.
+				//To record the calling stack
+				//To record the acutal content.
+				seqID++;
+				if (recordedDOMActions[thispathA+callerInfo]!=true)
+				{
+					recordedDOMActions[thispathA+callerInfo]=true;
+					record[DOMRecord].push({what:thispathA,whatR:thispathR,when:seqID,who:callerInfo});		//what: always available; whatR: record only DOM nodes access that has Relative XPATH
+				}
 			}
 		}
-	}
-	return returnValue;
+		return returnValue;
 	};
 }
 if (oldGetClassName)
@@ -873,24 +865,24 @@ var oldEQuerySelectorAll = new Array();
 for (; i<allElementsType.length; i++)
 {
 	//store element.getElementsByTagName to old value
-	oldEGetTagName[i] = allElementsType[i].prototype.getElementsByTagName;
-	oldEGetClassName[i] = allElementsType[i].prototype.getElementsByClassName;
-	oldEGetTagNameNS[i] = allElementsType[i].prototype.getElementsByTagNameNS;
-	oldEQuerySelector[i] = allElementsType[i].prototype.querySelector;
-	oldEQuerySelectorAll[i] = allElementsType[i].prototype.querySelectorAll;
-	allElementsType[i].prototype.__defineGetter__('parentNode',function(){var returnValue = oldParentNode.apply(this); var thispathA = getXPathA(returnValue); var thispathR = getXPathR(returnValue); var callerInfo = getCallerInfo(); if ((thispathA!="")&&(callerInfo!=null)) {seqID++; if (recordedDOMActions[thispathA+callerInfo]!=true) { recordedDOMActions[thispathA+callerInfo]=true; record[DOMRecord].push({what:thispathA,when:seqID,who:callerInfo,whatR:thispathR});}} return returnValue;});
+	oldEGetTagName[allElementsType[i]] = allElementsType[i].prototype.getElementsByTagName;
+	oldEGetClassName[allElementsType[i]] = allElementsType[i].prototype.getElementsByClassName;
+	oldEGetTagNameNS[allElementsType[i]] = allElementsType[i].prototype.getElementsByTagNameNS;
+	oldEQuerySelector[allElementsType[i]] = allElementsType[i].prototype.querySelector;
+	oldEQuerySelectorAll[allElementsType[i]] = allElementsType[i].prototype.querySelectorAll;
+	allElementsType[i].prototype.__defineGetter__('parentNode',function(){var returnValue = oldParentNode.apply(this); var callerInfo = getCallerInfo(); if (callerInfo!=null) {var thispathA = getXPathA(returnValue); var thispathR = getXPathR(returnValue); if (thispathA!="") {seqID++; if (recordedDOMActions[thispathA+callerInfo]!=true) { recordedDOMActions[thispathA+callerInfo]=true; record[DOMRecord].push({what:thispathA,when:seqID,who:callerInfo,whatR:thispathR});}}} return returnValue;});
 	
-	allElementsType[i].prototype.__defineGetter__('nextSibling',function(){var returnValue = oldNextSibling.apply(this); var thispathA = getXPathA(returnValue); var thispathR = getXPathR(returnValue); var callerInfo = getCallerInfo(); if ((thispathA!="")&&(callerInfo!=null)) {seqID++; if (recordedDOMActions[thispathA+callerInfo]!=true) { recordedDOMActions[thispathA+callerInfo]=true; record[DOMRecord].push({what:thispathA,when:seqID,who:callerInfo,whatR:thispathR});}} return returnValue;});
+	allElementsType[i].prototype.__defineGetter__('nextSibling',function(){var returnValue = oldNextSibling.apply(this); var callerInfo = getCallerInfo(); if (callerInfo!=null) {var thispathA = getXPathA(returnValue); var thispathR = getXPathR(returnValue); if (thispathA!="") {seqID++; if (recordedDOMActions[thispathA+callerInfo]!=true) { recordedDOMActions[thispathA+callerInfo]=true; record[DOMRecord].push({what:thispathA,when:seqID,who:callerInfo,whatR:thispathR});}}} return returnValue;});
 
-	allElementsType[i].prototype.__defineGetter__('previousSibling',function(){var returnValue = oldPreviousSibling.apply(this); var thispathA = getXPathA(returnValue); var thispathR = getXPathR(returnValue); var callerInfo = getCallerInfo(); if ((thispathA!="")&&(callerInfo!=null)) {seqID++; if (recordedDOMActions[thispathA+callerInfo]!=true) { recordedDOMActions[thispathA+callerInfo]=true; record[DOMRecord].push({what:thispathA,when:seqID,who:callerInfo,whatR:thispathR});}} return returnValue;});
+	allElementsType[i].prototype.__defineGetter__('previousSibling',function(){var returnValue = oldPreviousSibling.apply(this); var callerInfo = getCallerInfo(); if (callerInfo!=null) {var thispathA = getXPathA(returnValue); var thispathR = getXPathR(returnValue); if (thispathA!="") {seqID++; if (recordedDOMActions[thispathA+callerInfo]!=true) { recordedDOMActions[thispathA+callerInfo]=true; record[DOMRecord].push({what:thispathA,when:seqID,who:callerInfo,whatR:thispathR});}}} return returnValue;});
 
-	allElementsType[i].prototype.__defineGetter__('firstChild',function(){var returnValue = oldFirstChild.apply(this); var thispathA = getXPathA(returnValue); var thispathR = getXPathR(returnValue); var callerInfo = getCallerInfo(); if ((thispathA!="")&&(callerInfo!=null)) {seqID++; if (recordedDOMActions[thispathA+callerInfo]!=true) { recordedDOMActions[thispathA+callerInfo]=true; record[DOMRecord].push({what:thispathA,when:seqID,who:callerInfo,whatR:thispathR});}} return returnValue;});
+	allElementsType[i].prototype.__defineGetter__('firstChild',function(){var returnValue = oldFirstChild.apply(this); var callerInfo = getCallerInfo(); if (callerInfo!=null) {var thispathA = getXPathA(returnValue); var thispathR = getXPathR(returnValue); if (thispathA!="") {seqID++; if (recordedDOMActions[thispathA+callerInfo]!=true) { recordedDOMActions[thispathA+callerInfo]=true; record[DOMRecord].push({what:thispathA,when:seqID,who:callerInfo,whatR:thispathR});}}} return returnValue;});
 	
-	allElementsType[i].prototype.__defineGetter__('lastChild',function(){var returnValue = oldLastChild.apply(this); var thispathA = getXPathA(returnValue); var thispathR = getXPathR(returnValue); var callerInfo = getCallerInfo(); if ((thispathA!="")&&(callerInfo!=null)) {seqID++; if (recordedDOMActions[thispathA+callerInfo]!=true) { recordedDOMActions[thispathA+callerInfo]=true; record[DOMRecord].push({what:thispathA,when:seqID,who:callerInfo,whatR:thispathR});}} return returnValue;});
+	allElementsType[i].prototype.__defineGetter__('lastChild',function(){var returnValue = oldLastChild.apply(this); var callerInfo = getCallerInfo(); if (callerInfo!=null) {var thispathA = getXPathA(returnValue); var thispathR = getXPathR(returnValue); if (thispathA!="") {seqID++; if (recordedDOMActions[thispathA+callerInfo]!=true) { recordedDOMActions[thispathA+callerInfo]=true; record[DOMRecord].push({what:thispathA,when:seqID,who:callerInfo,whatR:thispathR});}}} return returnValue;});
 
-	allElementsType[i].prototype.__defineGetter__('children',function(){var thispathA = getXPathA(this); var thispathR = getXPathR(this); var callerInfo = getCallerInfo(); if ((thispathA!="")&&(callerInfo!=null)) {seqID++; if (recordedDOMActions["Children called on: "+thispathA+callerInfo]!=true) { recordedDOMActions["Children called on: "+thispathA+callerInfo]=true; record[DOMRecord].push({what:thispathA,when:seqID,who:callerInfo,whatR:thispathR,extraInfo:"children"});}} return oldChildren.apply(this);});
+	allElementsType[i].prototype.__defineGetter__('children',function(){var callerInfo = getCallerInfo(); if (callerInfo==null) {return oldChildren.apply(this);} var thispathA = getXPathA(this); var thispathR = getXPathR(this); if (thispathA!="") {seqID++; if (recordedDOMActions["Children called on: "+thispathA+callerInfo]!=true) { recordedDOMActions["Children called on: "+thispathA+callerInfo]=true; record[DOMRecord].push({what:thispathA,when:seqID,who:callerInfo,whatR:thispathR,extraInfo:"children"});}} return oldChildren.apply(this);});
 
-	allElementsType[i].prototype.__defineGetter__('childNodes',function(){var thispathA = getXPathA(this); var thispathR = getXPathR(this); var callerInfo = getCallerInfo(); if ((thispathA!="")&&(callerInfo!=null)) {seqID++; if (recordedDOMActions["childNodes called on: "+thispathA+callerInfo]!=true) { recordedDOMActions["childNodes called on: "+thispathA+callerInfo]=true; record[DOMRecord].push({what:thispathA,when:seqID,who:callerInfo,whatR:thispathR,extraInfo:"childNodes"});}} return oldChildNodes.apply(this);});
+	allElementsType[i].prototype.__defineGetter__('childNodes',function(){var callerInfo = getCallerInfo(); if (callerInfo==null) {return oldChildNodes.apply(this);} var thispathA = getXPathA(this); var thispathR = getXPathR(this); if (thispathA!="") {seqID++; if (recordedDOMActions["childNodes called on: "+thispathA+callerInfo]!=true) { recordedDOMActions["childNodes called on: "+thispathA+callerInfo]=true; record[DOMRecord].push({what:thispathA,when:seqID,who:callerInfo,whatR:thispathR,extraInfo:"childNodes"});}} return oldChildNodes.apply(this);});
 
 }
 var oldGetAttr = new Array();
@@ -903,97 +895,85 @@ var oldAttributes = new Array();
 //assign element.getElementsByTagName to new value
 for (i=0; i<allElementsType.length; i++)
 {
-	oldGetAttr[i] = allElementsType[i].prototype.getAttribute;
-	oldSetAttr[i] = allElementsType[i].prototype.setAttribute;
-	oldHasAttr[i] = allElementsType[i].prototype.hasAttribute;
-	oldInsertBefore[i] = allElementsType[i].prototype.insertBefore;
-	oldAppendChild[i] = allElementsType[i].prototype.appendChild;
-	oldReplaceChild[i] = allElementsType[i].prototype.replaceChild;
-	oldAttributes[i] = allElementsType[i].prototype.__lookupGetter__('attributes');
+	oldGetAttr[allElementsType[i]] = allElementsType[i].prototype.getAttribute;
+	oldSetAttr[allElementsType[i]] = allElementsType[i].prototype.setAttribute;
+	oldHasAttr[allElementsType[i]] = allElementsType[i].prototype.hasAttribute;
+	oldInsertBefore[allElementsType[i]] = allElementsType[i].prototype.insertBefore;
+	oldAppendChild[allElementsType[i]] = allElementsType[i].prototype.appendChild;
+	oldReplaceChild[allElementsType[i]] = allElementsType[i].prototype.replaceChild;
+	oldAttributes[allElementsType[i]] = allElementsType[i].prototype.__lookupGetter__('attributes');
 	allElementsType[i].prototype.getElementsByTagName = function(){
-		var func = oldEGetTagName[50];		//HTMLObjectElement in FF has a bug. This is a ad hoc workaround.
-		var j;
-		for (j=0; j < allElementsType.length; j++)
-		{
-			if ((this.constructor==allElementsType[j])||(this.__proto__==allElementsType[j].prototype))
-			{
-				func = oldEGetTagName[j];
-			}
-		}
+		var func = oldEGetTagName[this.constructor];
+		if (func==undefined) func = oldEGetTagName[HTMLObjectElement];
 		//record.push('Called someElement.getElementsByTagName('+arguments[0]+');');	//This is only going to add a English prose to record.
-		var thispathA = getXPathA(this);
-		var thispathR = getXPathR(this);
 		var callerInfo = getCallerInfo();
-		if ((thispathA!="")&&(callerInfo!=null))
+		if (callerInfo!=null)
 		{
-			seqID++;
-			if (recordedDOMActions["getElementsByTagName called on "+thispathA+" Tag: "+arguments[0]+callerInfo]!=true) 
-			{ 
-				recordedDOMActions["getElementsByTagName called on "+thispathA+" Tag: "+arguments[0]+callerInfo]=true; 
-				record[DOMRecord].push({what:thispathA,when:seqID,who:callerInfo,whatR:thispathR,extraInfo:"getElementsByTagName, Tag:"+arguments[0]});			
+			var thispathA = getXPathA(this);
+			var thispathR = getXPathR(this);
+			if (thispathA!="")
+			{
+				seqID++;
+				if (recordedDOMActions["getElementsByTagName called on "+thispathA+" Tag: "+arguments[0]+callerInfo]!=true) 
+				{ 
+					recordedDOMActions["getElementsByTagName called on "+thispathA+" Tag: "+arguments[0]+callerInfo]=true; 
+					record[DOMRecord].push({what:thispathA,when:seqID,who:callerInfo,whatR:thispathR,extraInfo:"getElementsByTagName, Tag:"+arguments[0]});			
+				}
 			}
 		}
 		return func.apply(this,arguments);
 	};
 	allElementsType[i].prototype.getElementsByClassName = function(){
-		var func = oldEGetTagName[50];
-		var j;
-		for (j=0; j < allElementsType.length; j++)
-		{
-			if ((this.constructor==allElementsType[j])||(this.__proto__==allElementsType[j].prototype)) func = oldEGetClassName[j];
-		}
+		var func = oldEGetClassName[this.constructor];
+		if (func==undefined) func = oldEGetClassName[HTMLObjectElement];
 		//record.push('Called someElement.getElementsByClassName('+arguments[0]+');');	//This is only going to add a English prose to record.
-		var thispathA = getXPathA(this);
-		var thispathR = getXPathR(this);
-		var callerInfo = getCallerInfo("getElementsByClassName");
-		if ((thispathA!="")&&(callerInfo!=null))
+		var callerInfo = getCallerInfo();
+		if (callerInfo!=null)
 		{
-			seqID++;
-			if (recordedDOMActions["getElementsByClassName called on "+thispathA+" Class: "+arguments[0]+callerInfo]!=true) 
-			{ 
-				recordedDOMActions["getElementsByClassName called on "+thispathA+" Class: "+arguments[0]+callerInfo]=true; 
-				record[DOMRecord].push({what:thispathA,when:seqID,who:callerInfo,whatR:thispathR,extraInfo:"getElementsByClassName, Tag:"+arguments[0]});
+			var thispathA = getXPathA(this);
+			var thispathR = getXPathR(this);
+			if (thispathA!="")
+			{
+				seqID++;
+				if (recordedDOMActions["getElementsByClassName called on "+thispathA+" Class: "+arguments[0]+callerInfo]!=true) 
+				{ 
+					recordedDOMActions["getElementsByClassName called on "+thispathA+" Class: "+arguments[0]+callerInfo]=true; 
+					record[DOMRecord].push({what:thispathA,when:seqID,who:callerInfo,whatR:thispathR,extraInfo:"getElementsByClassName, Tag:"+arguments[0]});
+				}
 			}
 		}
 		return func.apply(this,arguments);
 	};
 	allElementsType[i].prototype.getElementsByTagNameNS = function(){
-		var func = oldEGetTagName[50];
-		var j;
-		for (j=0; j < allElementsType.length; j++)
-		{
-			if ((this.constructor==allElementsType[j])||(this.__proto__==allElementsType[j].prototype)) func = oldEGetTagNameNS[j];
-		}
+		var func = oldEGetTagNameNS[this.constructor];
+		if (func==undefined) func = oldEGetTagNameNS[HTMLObjectElement];
 		//record.push('Called someElement.getElementsByTagNameNS('+arguments[0]+');');	//This is only going to add a English prose to record.
-		var thispathA = getXPathA(this);
-		var thispathR = getXPathR(this);
-		var callerInfo = getCallerInfo("getElementsByTagNameNS");
-		if ((thispathA!="")&&(callerInfo!=null))
+		var callerInfo = getCallerInfo();
+		if (callerInfo!=null)
 		{
-			seqID++;
-			if (recordedDOMActions["getElementsByTagNameNS called on "+thispathA+" NS: "+arguments[0]+" Tag: "+arguments[1]+callerInfo]!=true) 
-			{ 
-				recordedDOMActions["getElementsByTagNameNS called on "+thispathA+" NS: "+arguments[0]+" Tag: "+arguments[1]+callerInfo]=true; 
-				record[DOMRecord].push({what:thispathA,when:seqID,who:callerInfo,whatR:thispathR,extraInfo:"getElementsByTagNameNS, NS: "+arguments[0]+", Tag: "+arguments[1]});
+			var thispathA = getXPathA(this);
+			var thispathR = getXPathR(this);
+			if (thispathA!="")
+			{
+				seqID++;
+				if (recordedDOMActions["getElementsByTagNameNS called on "+thispathA+" NS: "+arguments[0]+" Tag: "+arguments[1]+callerInfo]!=true) 
+				{ 
+					recordedDOMActions["getElementsByTagNameNS called on "+thispathA+" NS: "+arguments[0]+" Tag: "+arguments[1]+callerInfo]=true; 
+					record[DOMRecord].push({what:thispathA,when:seqID,who:callerInfo,whatR:thispathR,extraInfo:"getElementsByTagNameNS, NS: "+arguments[0]+", Tag: "+arguments[1]});
+				}
 			}
 		}
 		return func.apply(this,arguments);
 	};
 	allElementsType[i].prototype.querySelector = function(){
-		var func = oldEGetTagName[50];		//HTMLObjectElement in FF has a bug. This is a ad hoc workaround.
-		var j;
-		for (j=0; j < allElementsType.length; j++)
-		{
-			if ((this.constructor==allElementsType[j])||(this.__proto__==allElementsType[j].prototype))
-			{
-				func = oldEQuerySelector[j];
-			}
-		}
+		var func = oldEQuerySelector[this.constructor];
+		if (func==undefined) func = oldEQuerySelector[HTMLObjectElement];
 		var returnValue = func.apply(this,arguments);
+		var callerInfo = getCallerInfo();
+		if (callerInfo==null) return returnValue;
 		var thispathA = getXPathA(returnValue);
 		var thispathR = getXPathR(returnValue);
-		var callerInfo = getCallerInfo();
-		if ((thispathA!="")&&(callerInfo!=null))
+		if (thispathA!="")
 		{
 			seqID++;
 			if (recordedDOMActions[thispathA+callerInfo]!=true) documentRecord
@@ -1005,25 +985,21 @@ for (i=0; i<allElementsType.length; i++)
 		return returnValue;
 	};
 	allElementsType[i].prototype.querySelectorAll = function(){
-		var func = oldEGetTagName[50];		//HTMLObjectElement in FF has a bug. This is a ad hoc workaround.
-		var j;
-		for (j=0; j < allElementsType.length; j++)
-		{
-			if ((this.constructor==allElementsType[j])||(this.__proto__==allElementsType[j].prototype))
-			{
-				func = oldEQuerySelectorAll[j];
-			}
-		}
-		var thispathA = getXPathA(this);
-		var thispathR = getXPathR(this);
+		var func = oldEQuerySelectorAll[this.constructor];
+		if (func==undefined) func = oldEQuerySelectorAll[HTMLObjectElement];
 		var callerInfo = getCallerInfo();
-		if ((thispathA!="")&&(callerInfo!=null))
+		if (callerInfo!=null)
 		{
-			seqID++;
-			if (recordedDOMActions["querySelectorAll called on "+thispathA+" Tag: "+arguments[0]+callerInfo]!=true) 
-			{ 
-				recordedDOMActions["querySelectorAll called on "+thispathA+" Tag: "+arguments[0]+callerInfo]=true; 
-				record[DOMRecord].push({what:thispathA,when:seqID,who:callerInfo,whatR:thispathR,extraInfo:"querySelectorAll, Tag:"+arguments[0]});			
+			var thispathA = getXPathA(this);
+			var thispathR = getXPathR(this);
+			if (thispathA!="")
+			{
+				seqID++;
+				if (recordedDOMActions["querySelectorAll called on "+thispathA+" Tag: "+arguments[0]+callerInfo]!=true) 
+				{ 
+					recordedDOMActions["querySelectorAll called on "+thispathA+" Tag: "+arguments[0]+callerInfo]=true; 
+					record[DOMRecord].push({what:thispathA,when:seqID,who:callerInfo,whatR:thispathR,extraInfo:"querySelectorAll, Tag:"+arguments[0]});			
+				}
 			}
 		}
 		return func.apply(this,arguments);
@@ -1032,17 +1008,13 @@ for (i=0; i<allElementsType.length; i++)
 
 	allElementsType[i].prototype.getAttribute = function(){
 		//of course, there is more ways to get/set attribute, including getAttributeNode, even innerHTML and then parse it. This is not a complete defense but could be if we really want to deploy it.
-		var func = oldEGetTagName[50];
-		var j;
-		for (j=0; j < allElementsType.length; j++)
-		{
-			if ((this.constructor==allElementsType[j])||(this.__proto__==allElementsType[j].prototype)) func = oldGetAttr[j];
-		}
+		var func = oldGetAttr[this.constructor];
+		if (func==undefined) func = oldGetAttr[HTMLObjectElement];
 		if ((arguments[0]!=null)&&(arguments[0].toLowerCase!=null)&&(arguments[0].toLowerCase()=="specialid"))
 		{
 			var thispathA = getXPathA(this);
 			var thispathR = getXPathR(this);
-			var callerInfo = getCallerInfo("getAttribute");
+			var callerInfo = getCallerInfo();
 			if ((thispathA!="")&&(callerInfo!=null))
 			{
 				seqID++;
@@ -1056,12 +1028,8 @@ for (i=0; i<allElementsType.length; i++)
 		return func.apply(this,arguments);
 	};
 	allElementsType[i].prototype.setAttribute = function(){
-		var func = oldEGetTagName[50];
-		var j;
-		for (j=0; j < allElementsType.length; j++)
-		{
-			if ((this.constructor==allElementsType[j])||(this.__proto__==allElementsType[j].prototype)) func = oldSetAttr[j];
-		}
+		var func = oldSetAttr[this.constructor];
+		if (func==undefined) func = oldSetAttr[HTMLObjectElement];
 		if ((arguments[0]!=null)&&(arguments[0].toLowerCase!=null)&&(arguments[0].toLowerCase()=="specialid"))
 		{
 			var thispathA = getXPathA(this);
@@ -1080,12 +1048,8 @@ for (i=0; i<allElementsType.length; i++)
 		return func.apply(this,arguments);
 	};
 	allElementsType[i].prototype.hasAttribute = function(){
-		var func = oldEGetTagName[50];
-		var j;
-		for (j=0; j < allElementsType.length; j++)
-		{
-			if ((this.constructor==allElementsType[j])||(this.__proto__==allElementsType[j].prototype)) func = oldHasAttr[j];
-		}
+		var func = oldHasAttr[this.constructor];
+		if (func==undefined) func = oldHasAttr[HTMLObjectElement];
 		if ((arguments[0]!=null)&&(arguments[0].toLowerCase!=null)&&(arguments[0].toLowerCase()=="specialid"))
 		{
 			var thispathA = getXPathA(this);
@@ -1105,16 +1069,12 @@ for (i=0; i<allElementsType.length; i++)
 	};
 	allElementsType[i].prototype.insertBefore = function(){
 	//var insertedElement = parentElement.insertBefore(newElement, referenceElement);
-		var func = oldEGetTagName[50];
-		var get;
-		var j;
-		for (j=0; j < allElementsType.length; j++)
+		var func = oldInsertBefore[this.constructor];
+		var get = oldGetAttr[this.constructor];
+		if (func==undefined) 
 		{
-			if ((this.constructor==allElementsType[j])||(this.__proto__==allElementsType[j].prototype)) 
-			{ 
-				func = oldInsertBefore[j]; 
-				get = oldGetAttr[j];
-			}
+			func = oldInsertBefore[HTMLObjectElement];
+			get = oldGetAttr[HTMLObjectElement];
 		}
 		if ((arguments[0]!=null)&&(arguments[0].getAttribute!=null)&&(get.apply(arguments[0],["specialId"])!=null))
 		{
@@ -1123,16 +1083,12 @@ for (i=0; i<allElementsType.length; i++)
 		return func.apply(this,arguments);
 	};
 	allElementsType[i].prototype.appendChild = function(){
-		var func = oldEGetTagName[50];
-		var get;
-		var j;
-		for (j=0; j < allElementsType.length; j++)
+		var func = oldAppendChild[this.constructor];
+		var get = oldGetAttr[this.constructor];
+		if (func==undefined) 
 		{
-			if ((this.constructor==allElementsType[j])||(this.__proto__==allElementsType[j].prototype)) 
-			{ 
-				func = oldAppendChild[j]; 
-				get = oldGetAttr[j];
-			}
+			func = oldAppendChild[HTMLObjectElement];
+			get = oldGetAttr[HTMLObjectElement];
 		}
 		if ((arguments[0]!=null)&&(arguments[0].getAttribute!=null)&&(get.apply(arguments[0],["specialId"])!=null))
 		{
@@ -1142,15 +1098,12 @@ for (i=0; i<allElementsType.length; i++)
 	};
 	allElementsType[i].prototype.replaceChild = function(){
 	//replacedNode = parentNode.replaceChild(newChild, oldChild);
-		var func = oldEGetTagName[50];
-		var j;
-		for (j=0; j < allElementsType.length; j++)
+		var func = oldReplaceChild[this.constructor];
+		var get = oldGetAttr[this.constructor];
+		if (func==undefined) 
 		{
-			if ((this.constructor==allElementsType[j])||(this.__proto__==allElementsType[j].prototype)) 
-			{ 
-				func = oldReplaceChild[j]; 
-				get = oldGetAttr[j];
-			}
+			func = oldReplaceChild[HTMLObjectElement];
+			get = oldGetAttr[HTMLObjectElement];
 		}
 		if ((arguments[0]!=null)&&(arguments[0].getAttribute!=null)&&(get.apply(arguments[0],["specialId"])!=null))
 		{
@@ -1159,15 +1112,8 @@ for (i=0; i<allElementsType.length; i++)
 		return func.apply(this,arguments);
 	};
 	newAttributes = function(){
-		var func = oldEGetTagName[50];
-		var j;
-		for (j=0; j < allElementsType.length; j++)
-		{
-			if ((this.constructor==allElementsType[j])||(this.__proto__==allElementsType[j].prototype)) 
-			{ 
-				func = oldAttributes[j];
-			}
-		}
+		var func = oldAttributes[this.constructor];
+		if (func==undefined) func = oldAttributes[HTMLObjectElement];
 		returnValue = func.apply(this,arguments);
 		if (returnValue.getNamedItem('specialId')==null) return returnValue;
 		cur_Attributes[returnValue.specialId.value] = this;
@@ -1179,30 +1125,32 @@ for (i=0; i<allElementsType.length; i++)
 	if (oldInnerHTMLGetter)
 	{
 		allElementsType[i].prototype.__defineGetter__('innerHTML',function(str){
-		var thispathA = getXPathA(this);
-		var thispathR = getXPathR(this);
-		var callerInfo = getCallerInfo("innerHTML");
-		if ((thispathA!="")&&(callerInfo!=null))
-		{
-			seqID++;
-			if (recordedDOMActions['Read innerHTML of this element: '+thispathA+'!'+callerInfo]!=true) 
-			{ 
-				recordedDOMActions['Read innerHTML of this element: '+thispathA+'!'+callerInfo]=true; 
-				record[DOMRecord].push({what:thispathA,when:seqID,who:callerInfo,whatR:thispathR,extraInfo:"innerHTML read"});
+			var callerInfo = getCallerInfo("innerHTML");
+			if (callerInfo==null) return oldInnerHTMLGetter.call(this,str);
+			var thispathA = getXPathA(this);
+			var thispathR = getXPathR(this);
+			if (thispathA!="")
+			{
+				seqID++;
+				if (recordedDOMActions['Read innerHTML of this element: '+thispathA+'!'+callerInfo]!=true) 
+				{ 
+					recordedDOMActions['Read innerHTML of this element: '+thispathA+'!'+callerInfo]=true; 
+					record[DOMRecord].push({what:thispathA,when:seqID,who:callerInfo,whatR:thispathR,extraInfo:"innerHTML read"});
+				}
 			}
-		}
-		//strip specialId from all children.
-		clearSpecialId(this);
-		return oldInnerHTMLGetter.call(this,str);
+			//strip specialId from all children.
+			clearSpecialId(this);
+			return oldInnerHTMLGetter.call(this,str);
 		});
 	}
 	if (oldTextContentGetter)
 	{
 		allElementsType[i].prototype.__defineGetter__('textContent',function(str){
+		var callerInfo = getCallerInfo("textContent");
+		if (callerInfo==null) return oldTextContentGetter.call(this,str);
 		var thispathA = getXPathA(this);
 		var thispathR = getXPathR(this);
-		var callerInfo = getCallerInfo("textContent");
-		if ((thispathA!="")&&(callerInfo!=null))
+		if (thispathA!="")
 		{
 			seqID++;
 			if (recordedDOMActions['Read textContent of this element: '+thispathA+'!'+callerInfo]!=true) 
