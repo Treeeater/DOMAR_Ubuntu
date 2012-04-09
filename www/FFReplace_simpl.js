@@ -42,8 +42,8 @@ var windowRecord = 1;
 var documentRecord = 2;
 var curDomain;
 var curTopDomain;
-var cur_Attributes = new Array();		//works as a buffer to hold specialids and their nodes if attributes is called.
-var cur_InnerHTML = new Array();		//works as a buffer to hold specialids and their nodes if innerHTML is called.
+var cur_Attributes = {};		//works as a buffer to hold specialids and their nodes if attributes is called.
+var cur_InnerHTML = {};		//works as a buffer to hold specialids and their nodes if innerHTML is called.
 //Enumerates all types of elements to mediate properties like parentNode
 //According to DOM spec level2 by W3C, HTMLBaseFontElement not defined in FF.
 var allElementsType = [HTMLElement,HTMLHtmlElement,HTMLHeadElement,HTMLLinkElement,HTMLTitleElement,HTMLMetaElement,HTMLBaseElement,HTMLStyleElement,HTMLBodyElement,HTMLFormElement,HTMLSelectElement,HTMLOptGroupElement,HTMLOptionElement,HTMLInputElement,HTMLTextAreaElement,HTMLButtonElement,HTMLLabelElement,HTMLFieldSetElement,HTMLLegendElement,HTMLUListElement,HTMLDListElement,HTMLDirectoryElement,HTMLMenuElement,HTMLLIElement,HTMLDivElement,HTMLParagraphElement,HTMLHeadingElement,HTMLQuoteElement,HTMLPreElement,HTMLBRElement,HTMLFontElement,HTMLHRElement,HTMLModElement,HTMLAnchorElement,HTMLImageElement,HTMLParamElement,HTMLAppletElement,HTMLMapElement,HTMLAreaElement,HTMLScriptElement,HTMLTableElement,HTMLTableCaptionElement,HTMLTableColElement,HTMLTableSectionElement,HTMLTableRowElement,HTMLTableCellElement,HTMLFrameSetElement,HTMLFrameElement,HTMLIFrameElement,HTMLObjectElement,HTMLSpanElement];
@@ -63,11 +63,11 @@ var restoreAttributes = function()
 		if (thisNode)
 		{
 			var func = oldSetAttr[thisNode.constructor];
-			if (func==undefined) func = oldSetAttr[HTMLObjectElement];
+			if (func==undefined) {func = oldSetAttr[HTMLObjectElement];}
 			func.apply(thisNode,['specialId',id]);
 		}
 	}
-	cur_InnerHTML = new Array();
+	cur_InnerHTML = {};
 	return;
 };
 

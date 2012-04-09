@@ -164,9 +164,9 @@ def CheckModel(record, domain, url, urlStructure, id, relative)
 	}
 	if (relative)
 		accessHashR.each_key{|tld|
-			#historyContent = ""
-			#makeDirectory($PolicyRDir+domain+"/"+urlStructure+"/histories/")
-			#if (File.exists?($PolicyRDir+domain+"/"+urlStructure+"/histories/"+tld+".txt")) then historyContent = File.read($PolicyRDir+domain+"/"+urlStructure+"/histories/"+tld+".txt") end
+			historyContent = ""
+			makeDirectory($PolicyRDir+domain+"/"+urlStructure+"/histories/")
+			if (File.exists?($PolicyRDir+domain+"/"+urlStructure+"/histories/"+tld+".txt")) then historyContent = File.read($PolicyRDir+domain+"/"+urlStructure+"/histories/"+tld+".txt") end
 			accessHashR[tld].each{|a|
 				if (!policyR.has_key? tld)
 					#haven't seen any scripts from this domain before, currently we don't do anything until a model is built (within a few accesses)
@@ -188,18 +188,30 @@ def CheckModel(record, domain, url, urlStructure, id, relative)
 						end
 					else
 						pointer = 0
+						newRecord = ""
 						if (policyR[tld].include? a[0]) 
-							#pointer = historyContent.index(a[0]+"\n")
+							pointer = historyContent.index(a[0]+"-=->")
+							newRecord = a[0]
 						else
-							#pointer = historyContent.index(a[1]+"\n")
+							pointer = historyContent.index(a[1]+"-=->")
+							newRecord = a[1]
 						end
-						#pointer = historyContent.index("\n->Accessed Entries:",pointer)
-						#pointer = historyContent.index("\n", pointer+2)-1
-						#historyContent = historyContent[0..pointer]+" "+url+id.to_s+historyContent[pointer+1..historyContent.length]
+						if (!pointer)
+							historyContent = historyContent + newRecord + "-=->1\n"
+						else
+							endpointer = historyContent.index("\n",pointer+2)-1
+							thisEntry = historyContent[pointer..endpointer]
+							newCount = thisEntry.gsub(/.*-=->(\d+)/,'\1').to_i + 1
+							if (pointer>0)
+								historyContent = historyContent[0..pointer-1]+newRecord+"-=->"+newCount.to_s+historyContent[endpointer..-1]
+							else 
+								historyContent = newRecord+"-=->"+newCount.to_s+historyContent[endpointer..-1]
+							end
+						end
 					end
 				end
 			}
-			#if (historyContent !="") then File.open($PolicyRDir+domain+"/"+urlStructure+"/histories/"+tld+".txt","w") {|f| f.write(historyContent)} end
+			if (historyContent !="") then File.open($PolicyRDir+domain+"/"+urlStructure+"/histories/"+tld+".txt","w") {|f| f.write(historyContent)} end
 		}
 	end
 	if (!diffArrayA.empty?)
