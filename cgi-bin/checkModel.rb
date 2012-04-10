@@ -199,8 +199,8 @@ def CheckModel(record, domain, url, urlStructure, id, relative)
 						if (!pointer)
 							historyContent = historyContent + newRecord + "-=->1\n"
 						else
-							endpointer = historyContent.index("\n",pointer+2)-1
-							thisEntry = historyContent[pointer..endpointer]
+							endpointer = historyContent.index("\n",pointer+2)
+							thisEntry = historyContent[pointer..endpointer-1]
 							newCount = thisEntry.gsub(/.*-=->(\d+)/,'\1').to_i + 1
 							if (pointer>0)
 								historyContent = historyContent[0..pointer-1]+newRecord+"-=->"+newCount.to_s+historyContent[endpointer..-1]
@@ -444,21 +444,23 @@ def AdaptAnchor(domain, url, urlStructure)
 			if (original.match(/\{zyczyc\{Tag\s\d+\s:=\s#{Regexp.quote(l)}/)!=nil) then next end			#to avoid duplicates
 			#id += 1
 			tagContent = l.gsub(/^(.*?)\}zyczyc\{.*/m,'\1')
-			vicinityInfo = l.gsub(/.*\}zyczyc\{(.*?)\}zyczyc\}.*/m,'\1')
+			vicinityInfo = l.gsub(/.*?\}zyczyc\{(.*?)\}zyczyc\}.*/m,'\1')
 			id = Digest::MD5.hexdigest(tagContent+vicinityInfo)[0..8].to_i(16)
 			original = original + "{zyczyc{Tag #{id} := " + l
+			searchString = " =|> " + tagContent.gsub(/[\r\n]/,'') + " => " + vicinityInfo.gsub(/[\r\n]/,'')
 			#also replace diff files with new id.
 			diffFileHash.each_key{|k|
 				#for each diff file
-				diffFileHash[k].gsub!(/\n\/\/\d+(.*?)\s==>.*?#{Regexp.quote(" =|> " + tagContent.gsub(/[\r\n]/,'') + " => " + vicinityInfo.gsub(/[\r\n]/,''))}/,"\n//id#{id}"+'\1')
+				diffFileHash[k].gsub!(/\n\/\/\d+(.*?)\s==>.*?#{Regexp.quote(searchString)}/,"\n//id#{id}"+'\1')
 			}
 			policyFileHash.each_key{|k|
 				#for each policy file
-				policyFileHash[k].gsub!(/\n\/\/\d+(.*?)\s==>.*?#{Regexp.quote(" =|> " + tagContent.gsub(/[\r\n]/,'') + " => " + vicinityInfo.gsub(/[\r\n]/,''))}/,"\n//id#{id}"+'\1')
+				policyFileHash[k].gsub!(/\n\/\/\d+(.*?)\s==>.*?#{Regexp.quote(searchString)}/,"\n//id#{id}"+'\1')
 			}
 		}
 		#flush diff file to disk.
 		diffFileHash.each_key{|k|
+=begin
 			#uniq the lines
 			temp = Array.new
 			diffFileHash[k].each_line{|l|
@@ -467,9 +469,12 @@ def AdaptAnchor(domain, url, urlStructure)
 			temp.uniq!
 			towrite = temp.join()
 			File.open(k,"w"){|fh| fh.write(towrite)}
+=end
+			File.open(k,"w"){|fh| fh.write(diffFileHash[k])}
 		}
 		#flush policy file to disk.
 		policyFileHash.each_key{|k|
+=begin
 			#uniq the lines
 			temp = Array.new
 			policyFileHash[k].each_line{|l|
@@ -478,12 +483,14 @@ def AdaptAnchor(domain, url, urlStructure)
 			temp.uniq!
 			towrite = temp.join()
 			File.open(k,"w"){|fh| fh.write(towrite)}
+=end
+			File.open(k,"w"){|fh| fh.write(policyFileHash[k])}
 		}
 		linesToAdd.each{|l|
 			startingPoint = patchupFile.index("{zyczyc{"+l.chomp)
 			while (startingPoint!=nil)
 				endPoint = patchupFile.index("{zyczyc}\n",startingPoint)
-				if startingPoint==0 then patchupFile = patchupFile[endPoint+9..-1] else patchupFile = patchupFile[0..startingPoint-1]+patchupFile[endPoint+9..-1] end
+				if (startingPoint==0) then patchupFile = patchupFile[endPoint+9..-1] else patchupFile = patchupFile[0..startingPoint-1]+patchupFile[endPoint+9..-1] end
 				startingPoint = patchupFile.index("{zyczyc{"+l.chomp)
 			end
 		}

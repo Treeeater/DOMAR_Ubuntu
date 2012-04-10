@@ -6,7 +6,7 @@
 # --------------------------------------------------------------------
 # ==ServerScript==
 # @name            no-cache
-# @status on
+# @status off
 # @description     
 # @include        .*
 # @exclude        
