@@ -52,6 +52,7 @@ recordDomain = CGI.unescapeHTML(cgi['domain'])
 recordTrace = CGI.unescapeHTML(cgi['trace'])
 recordId = CGI.unescapeHTML(cgi['id'])
 
+#t1 = Time.now
 sanitizedURL = recordURL.gsub(/[^a-zA-Z0-9]/,"")
 #urlStructure = extractURLStructure(recordURL)
 urlStructure = LookupURLStructure(recordURL,recordDomain)
@@ -118,6 +119,8 @@ else
 	AdaptAnchor(recordDomain, sanitizedURL, urlStructure)
 end
 File.open($LogFile, "a"){|f| f.write(recordURL+recordId+"\n")}
+	#t2 = Time.now
+	#File.open($DF,"a"){|f| f.write(recordURL+" -> "+ ((t2-t1)*1000).to_s + "\n") }
 puts "<h1>!</h1>"
 puts "</body>"
 puts "</html>"

@@ -174,12 +174,15 @@ def injectFFReplace(response,domain,filecnt)
 		headpos = insertIndex+1
 		firstportion = response[0..headpos]
 		lastportion = response[headpos..response.length]
-		middleportion = "<script src='http://chromium.cs.virginia.edu:12348/FFReplace_simpl.js'></script><script>"
+		#middleportion = "<script src='http://chromium.cs.virginia.edu:12348/timing.js'></script>"
+#=begin
+		middleportion = "<script src='http://chromium.cs.virginia.edu:12348/timing.js'></script><script src='http://chromium.cs.virginia.edu:12348/FFReplace_simpl.js'></script><script>"
 		while (!trustedDomains.empty?)
 			middleportion = middleportion + "__record().Push(\"" + trustedDomains.pop().to_s + "\");\n"
 		end
 		middleportion = middleportion + "__record().Push(\"chromium.cs.virginia.edu:12348\");"
 		middleportion = middleportion + "__record().setId(\"#{filecnt.to_s}\");</script>"
+#=end
 		total = firstportion+middleportion+lastportion
 	end
 	return total
